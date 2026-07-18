@@ -61,6 +61,10 @@ model Company {
   priceChangePct    Decimal    @default(0) @db.Decimal(8, 4)
   marketCapCents    BigInt?
   listedAt          DateTime?
+  /// Last time dividends/history/fundamentals were pulled from the provider
+  /// (the token-gated "detail" call) — distinct from `updatedAt`, which also
+  /// changes on every cheap directory-sync price refresh. Null = never synced.
+  detailsSyncedAt   DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -159,8 +163,42 @@ model DividendPayment {
   paymentDate    DateTime?
   createdAt      DateTime     @default(now())
 
+  @@unique([companyId, exDate, type])
   @@index([companyId, exDate])
   @@map("dividend_payments")
+}
+
+// ─────────────────────────────────────────────────────────
+// Market data sync
+// ─────────────────────────────────────────────────────────
+
+enum SyncJobType {
+  COMPANY_DIRECTORY
+  COMPANY_DETAILS
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+/// One row per sync run — the audit trail for "registrar logs de
+/// sincronização". Written by runSyncJob() in src/features/market-sync/,
+/// never by UI code.
+model SyncLog {
+  id             String      @id @default(uuid())
+  type           SyncJobType
+  status         SyncStatus  @default(RUNNING)
+  itemsProcessed Int         @default(0)
+  itemsFailed    Int         @default(0)
+  errorMessage   String?
+  startedAt      DateTime    @default(now())
+  finishedAt     DateTime?
+
+  @@index([type, startedAt])
+  @@map("sync_logs")
 }
 
 // ─────────────────────────────────────────────────────────

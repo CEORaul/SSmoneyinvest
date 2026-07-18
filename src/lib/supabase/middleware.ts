@@ -17,6 +17,13 @@ const PUBLIC_PREFIXES = [
 ]
 
 export async function updateSession(request: NextRequest) {
+  // API routes authorize themselves (e.g. CRON_SECRET on /api/cron/*,
+  // requireUser() inside Server Actions) — they must never be redirected to
+  // /login, which would break server-to-server callers like Vercel Cron.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const { url, anonKey } = getSupabaseEnv()

@@ -1,10 +1,10 @@
 import Link from "next/link"
 
 import { TickerBadge } from "@/components/shared/TickerBadge"
-import { getPopularCompanies } from "@/features/home/mock-data"
+import { getPopularCompanies } from "@/features/market/queries"
 
-export function PopularCompaniesSection() {
-  const companies = getPopularCompanies()
+export async function PopularCompaniesSection() {
+  const companies = await getPopularCompanies()
 
   return (
     <section className="px-6 py-20">
