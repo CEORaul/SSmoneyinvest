@@ -1,0 +1,232 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────
+// Identity
+// ─────────────────────────────────────────────────────────
+
+/// Mirrors auth.users.id (Supabase-managed). Prisma cannot reach into the
+/// `auth` schema, so this is a logical 1:1 kept in sync by a Postgres
+/// trigger (see prisma/migrations) plus a defensive upsert in requireUser().
+model Profile {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String?
+  avatarUrl String?
+  currency  String   @default("BRL")
+  locale    String   @default("pt-BR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favorites        Favorite[]
+  portfolioEntries PortfolioPosition[]
+  transactions     Transaction[]
+
+  @@map("profiles")
+}
+
+// ─────────────────────────────────────────────────────────
+// Market catalog
+// ─────────────────────────────────────────────────────────
+
+enum AssetClass {
+  STOCK
+  FII
+  ETF
+}
+
+/// Canonical registry for every listed asset (ação, FII ou ETF). Holds the
+/// fields shared across all three classes; class-specific fundamentals live
+/// in the 1:1 Stock/Fii/Etf extension tied to `assetClass`.
+model Company {
+  id                String     @id @default(uuid())
+  ticker            String     @unique
+  name              String
+  logoUrl           String?
+  description       String?
+  sector            String?
+  segment           String?
+  assetClass        AssetClass
+  currency          String     @default("BRL")
+  priceCents        Int        @default(0)
+  priceChangePct    Decimal    @default(0) @db.Decimal(8, 4)
+  marketCapCents    BigInt?
+  listedAt          DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  stock             Stock?
+  fii               Fii?
+  etf               Etf?
+  priceHistory      PriceHistoryPoint[]
+  dividendHistory   DividendPayment[]
+  favorites         Favorite[]
+  portfolioEntries  PortfolioPosition[]
+  transactions      Transaction[]
+
+  @@index([assetClass])
+  @@index([sector])
+  @@map("companies")
+}
+
+/// Stock-specific fundamentals (indicadores fundamentalistas).
+model Stock {
+  id                String   @id @default(uuid())
+  companyId         String   @unique
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priceToEarnings   Decimal? @db.Decimal(10, 2)
+  priceToBook       Decimal? @db.Decimal(10, 2)
+  roe               Decimal? @db.Decimal(8, 4)
+  roic              Decimal? @db.Decimal(8, 4)
+  dividendYield     Decimal? @db.Decimal(8, 4)
+  netMargin         Decimal? @db.Decimal(8, 4)
+  netDebtCents      BigInt?
+  equityCents       BigInt?
+  updatedAt         DateTime @updatedAt
+
+  @@map("stocks")
+}
+
+/// FII-specific fundamentals.
+model Fii {
+  id             String   @id @default(uuid())
+  companyId      String   @unique
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priceToBook    Decimal? @db.Decimal(10, 2)
+  dividendYield  Decimal? @db.Decimal(8, 4)
+  netWorthCents  BigInt?
+  managementFee  Decimal? @db.Decimal(8, 4)
+  vacancyRate    Decimal? @db.Decimal(8, 4)
+  propertyCount  Int?
+  quotaCount     BigInt?
+  administrator  String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("fiis")
+}
+
+/// ETF-specific fundamentals.
+model Etf {
+  id             String   @id @default(uuid())
+  companyId      String   @unique
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  benchmarkIndex String?
+  expenseRatio   Decimal? @db.Decimal(8, 4)
+  navCents       BigInt?
+  dividendYield  Decimal? @db.Decimal(8, 4)
+  updatedAt      DateTime @updatedAt
+
+  @@map("etfs")
+}
+
+/// Daily/close price series backing the "Histórico de Preço" chart.
+model PriceHistoryPoint {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  date       DateTime
+  closeCents Int
+  createdAt  DateTime @default(now())
+
+  @@unique([companyId, date])
+  @@index([companyId, date])
+  @@map("price_history_points")
+}
+
+enum DividendType {
+  DIVIDEND
+  JCP
+  RENDIMENTO
+}
+
+/// Per-share dividend/JCP/rendimento events backing "Histórico de Dividendos".
+model DividendPayment {
+  id             String       @id @default(uuid())
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type           DividendType @default(DIVIDEND)
+  amountPerShare Decimal      @db.Decimal(12, 6)
+  exDate         DateTime
+  paymentDate    DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([companyId, exDate])
+  @@map("dividend_payments")
+}
+
+// ─────────────────────────────────────────────────────────
+// Favorites
+// ─────────────────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, companyId])
+  @@map("favorites")
+}
+
+// ─────────────────────────────────────────────────────────
+// Portfolio
+// ─────────────────────────────────────────────────────────
+
+/// Current aggregated holding per (profile, company) — the "Carteira" row.
+/// Kept in sync transactionally whenever a Transaction is created/edited/
+/// deleted, mirroring the write-time-aggregate pattern (not derived on read).
+model PortfolioPosition {
+  id                   String   @id @default(uuid())
+  profileId            String
+  profile              Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId            String
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quantity             Decimal  @default(0) @db.Decimal(18, 8)
+  averagePriceCents    Int      @default(0)
+  totalInvestedCents   BigInt   @default(0)
+  totalDividendsCents  BigInt   @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([profileId, companyId])
+  @@map("portfolio_positions")
+}
+
+enum TransactionType {
+  BUY
+  SELL
+  DIVIDEND
+}
+
+/// Immutable ledger of buy/sell/dividend events. Source of truth that
+/// PortfolioPosition is aggregated from.
+model Transaction {
+  id          String          @id @default(uuid())
+  profileId   String
+  profile     Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type        TransactionType
+  quantity    Decimal         @db.Decimal(18, 8)
+  priceCents  Int
+  totalCents  BigInt
+  date        DateTime
+  note        String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([profileId, date])
+  @@index([profileId, companyId])
+  @@map("transactions")
+}
