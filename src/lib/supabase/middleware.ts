@@ -6,7 +6,12 @@ import { getSupabaseEnv } from "@/lib/supabase/env"
 // Ações, FIIs, ETFs, Mercado, Empresa e Pesquisa são navegáveis sem login
 // (como no Investidor10) — só a área logada (dashboard/carteira/favoritos/
 // perfil/configurações) exige sessão.
-const PUBLIC_AUTH_PATHS = ["/login", "/cadastro", "/recuperar-senha"]
+//
+// PUBLIC_AUTH_PATHS: pages a logged-in user gets redirected away from (no
+// reason to see the login form again). /reset-password is deliberately
+// NOT here — the password-recovery flow lands an authenticated (recovery)
+// session on that exact page, and redirecting it away would break the flow.
+const PUBLIC_AUTH_PATHS = ["/login", "/register", "/forgot-password"]
 const PUBLIC_PREFIXES = [
   "/",
   "/mercado",
@@ -14,6 +19,7 @@ const PUBLIC_PREFIXES = [
   "/fiis",
   "/etfs",
   "/empresa",
+  "/reset-password",
 ]
 
 export async function updateSession(request: NextRequest) {
@@ -68,7 +74,10 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isPublicAuthPath) {
     const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = "/dashboard"
+    // /dashboard doesn't exist yet (a later phase) — /perfil is the one
+    // real protected destination this phase ships. Revisit once Dashboard
+    // lands.
+    redirectUrl.pathname = "/perfil"
     redirectUrl.search = ""
     return NextResponse.redirect(redirectUrl)
   }

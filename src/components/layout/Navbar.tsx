@@ -12,6 +12,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { ThemeToggle } from "@/components/shared/ThemeToggle"
+import { NavUserMenu } from "@/features/auth/components/NavUserMenu"
 import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
@@ -22,7 +24,17 @@ const NAV_LINKS = [
   { label: "Preços", href: "/precos" },
 ]
 
-export function Navbar() {
+export interface NavbarUser {
+  fullName: string | null
+  email: string
+  avatarUrl: string | null
+}
+
+interface NavbarProps {
+  user?: NavbarUser | null
+}
+
+export function Navbar({ user }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false)
 
   useEffect(() => {
@@ -62,51 +74,87 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button variant="ghost" nativeButton={false} render={<Link href="/login" />}>
-            Entrar
-          </Button>
-          <Button nativeButton={false} render={<Link href="/register" />}>
-            Começar Gratuitamente
-          </Button>
+          <ThemeToggle />
+          {user ? (
+            <NavUserMenu
+              fullName={user.fullName}
+              email={user.email}
+              avatarUrl={user.avatarUrl}
+            />
+          ) : (
+            <>
+              <Button variant="ghost" nativeButton={false} render={<Link href="/login" />}>
+                Entrar
+              </Button>
+              <Button nativeButton={false} render={<Link href="/register" />}>
+                Começar Gratuitamente
+              </Button>
+            </>
+          )}
         </div>
 
-        <Sheet>
-          <SheetTrigger
-            render={
-              <Button variant="ghost" size="icon" aria-label="Abrir menu" className="md:hidden" />
-            }
-          >
-            <Menu className="size-5" />
-          </SheetTrigger>
-          <SheetContent side="right" className="w-72">
-            <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-            <div className="mt-10 flex flex-col gap-1 px-2">
-              {NAV_LINKS.map((link) => (
-                <SheetClose
-                  key={link.href}
-                  render={<Link href={link.href} />}
-                  className="rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
-                >
-                  {link.label}
-                </SheetClose>
-              ))}
-              <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
-                <SheetClose
-                  render={<Link href="/login" />}
-                  className={buttonVariants({ variant: "outline" })}
-                >
-                  Entrar
-                </SheetClose>
-                <SheetClose
-                  render={<Link href="/register" />}
-                  className={buttonVariants({})}
-                >
-                  Começar Gratuitamente
-                </SheetClose>
+        <div className="flex items-center gap-1 md:hidden">
+          {user && (
+            <NavUserMenu
+              fullName={user.fullName}
+              email={user.email}
+              avatarUrl={user.avatarUrl}
+            />
+          )}
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon" aria-label="Abrir menu" />
+              }
+            >
+              <Menu className="size-5" />
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72">
+              <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
+              <div className="mt-10 flex flex-col gap-1 px-2">
+                {NAV_LINKS.map((link) => (
+                  <SheetClose
+                    key={link.href}
+                    render={<Link href={link.href} />}
+                    className="rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
+                  >
+                    {link.label}
+                  </SheetClose>
+                ))}
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                  <span className="px-1 text-sm font-medium text-muted-foreground">Tema</span>
+                  <ThemeToggle />
+                </div>
+                {!user && (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <SheetClose
+                      render={<Link href="/login" />}
+                      className={buttonVariants({ variant: "outline" })}
+                    >
+                      Entrar
+                    </SheetClose>
+                    <SheetClose
+                      render={<Link href="/register" />}
+                      className={buttonVariants({})}
+                    >
+                      Começar Gratuitamente
+                    </SheetClose>
+                  </div>
+                )}
+                {user && (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <SheetClose
+                      render={<Link href="/perfil" />}
+                      className={buttonVariants({ variant: "outline" })}
+                    >
+                      Perfil
+                    </SheetClose>
+                  </div>
+                )}
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </nav>
     </header>
   )

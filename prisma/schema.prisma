@@ -15,8 +15,9 @@ datasource db {
 // ─────────────────────────────────────────────────────────
 
 /// Mirrors auth.users.id (Supabase-managed). Prisma cannot reach into the
-/// `auth` schema, so this is a logical 1:1 kept in sync by a Postgres
-/// trigger (see prisma/migrations) plus a defensive upsert in requireUser().
+/// `auth` schema, so this is a logical 1:1 — provisioned by an upsert in
+/// requireUser() on the user's first authenticated request (no Postgres
+/// trigger here, unlike the sibling SSmoney project).
 model Profile {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -30,8 +31,40 @@ model Profile {
   favorites        Favorite[]
   portfolioEntries PortfolioPosition[]
   transactions     Transaction[]
+  preferences      UserPreferences?
 
   @@map("profiles")
+}
+
+enum ThemePreference {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum LayoutPreference {
+  COMFORTABLE
+  COMPACT
+}
+
+enum ExperienceMode {
+  BEGINNER
+  ADVANCED
+}
+
+/// Genuinely new preferences only — currency/locale already live on
+/// Profile (currency, locale) and are reused as-is, not duplicated here.
+model UserPreferences {
+  id             String           @id @default(uuid())
+  profileId      String           @unique
+  profile        Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  theme          ThemePreference  @default(SYSTEM)
+  layout         LayoutPreference @default(COMFORTABLE)
+  experienceMode ExperienceMode   @default(BEGINNER)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("user_preferences")
 }
 
 // ─────────────────────────────────────────────────────────
