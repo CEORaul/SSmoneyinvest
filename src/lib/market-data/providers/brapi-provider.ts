@@ -116,6 +116,7 @@ function mapPricePoint(point: BrapiHistoricalPoint): PricePoint | null {
 
 export class BrapiProvider implements MarketDataProvider {
   readonly name = "brapi.dev"
+  readonly capabilities = { directory: true, details: true }
 
   async listCompanyDirectory(): Promise<CompanyDirectoryEntry[]> {
     const response = await rateLimiter.schedule(() =>

@@ -201,6 +201,35 @@ model SyncLog {
   @@map("sync_logs")
 }
 
+enum ProviderStatus {
+  ONLINE
+  DEGRADED
+  OFFLINE
+}
+
+/// Rolling current-state snapshot per MarketDataProvider — what
+/// ProviderManager reads to decide routing/failover and what a future
+/// admin panel reads to show provider status. One row per provider name,
+/// updated after every single provider call (success or failure). Not a
+/// call-by-call log (that's ProviderLog, a later phase) — just "how is this
+/// provider doing right now."
+model ProviderHealth {
+  id                 String         @id @default(uuid())
+  providerName       String         @unique
+  status             ProviderStatus @default(ONLINE)
+  consecutiveFailures Int           @default(0)
+  totalRequests      Int            @default(0)
+  totalFailures      Int            @default(0)
+  lastLatencyMs      Int?
+  avgLatencyMs       Int?
+  lastError          String?
+  lastSuccessAt      DateTime?
+  lastCheckedAt      DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@map("provider_health")
+}
+
 // ─────────────────────────────────────────────────────────
 // Favorites
 // ─────────────────────────────────────────────────────────
