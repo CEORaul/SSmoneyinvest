@@ -130,6 +130,13 @@ model Company {
   /// "OK" | "REJECTED_KEPT_LAST_VALID" — see QuoteValidationAlert for why,
   /// when the latter.
   lastQuoteStatus     String?
+  /// True when this row was created by hand via the portfolio's "Adicionar
+  /// Investimento" flow (findOrCreateManualCompany) instead of a market-data
+  /// sync — drives whether trades against it require a manual price (no
+  /// historical series to look up). Any category can have both manual and
+  /// synced companies side by side; a real directory sync flips this back to
+  /// false the moment it upserts a matching ticker for real.
+  isManualEntry     Boolean    @default(false)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 

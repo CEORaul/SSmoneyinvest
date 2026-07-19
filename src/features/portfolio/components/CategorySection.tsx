@@ -176,7 +176,7 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
                     <TableRow key={position.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <TickerBadge ticker={position.ticker} size="sm" />
+                          <TickerBadge ticker={position.ticker} logoUrl={position.logoUrl} size="sm" />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{position.ticker}</p>
                             <p className="truncate text-xs text-muted-foreground">

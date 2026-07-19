@@ -76,11 +76,16 @@ export function Navbar({ user }: NavbarProps) {
         <div className="hidden items-center gap-2 md:flex">
           <ThemeToggle />
           {user ? (
-            <NavUserMenu
-              fullName={user.fullName}
-              email={user.email}
-              avatarUrl={user.avatarUrl}
-            />
+            <>
+              <Button variant="outline" nativeButton={false} render={<Link href="/carteira" />}>
+                Carteira
+              </Button>
+              <NavUserMenu
+                fullName={user.fullName}
+                email={user.email}
+                avatarUrl={user.avatarUrl}
+              />
+            </>
           ) : (
             <>
               <Button variant="ghost" nativeButton={false} render={<Link href="/login" />}>
@@ -143,6 +148,12 @@ export function Navbar({ user }: NavbarProps) {
                 )}
                 {user && (
                   <div className="flex flex-col gap-2 pt-2">
+                    <SheetClose
+                      render={<Link href="/carteira" />}
+                      className={buttonVariants({})}
+                    >
+                      Carteira
+                    </SheetClose>
                     <SheetClose
                       render={<Link href="/perfil" />}
                       className={buttonVariants({ variant: "outline" })}

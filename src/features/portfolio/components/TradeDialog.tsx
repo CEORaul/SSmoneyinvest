@@ -31,6 +31,7 @@ export interface TradeCompany {
   name: string
   logoUrl: string | null
   assetClass: AssetClass
+  isManualEntry: boolean
 }
 
 interface TradeDialogProps {
@@ -56,6 +57,7 @@ export function TradeDialog({ type, open, onOpenChange, company, ownedQuantity }
   const [selectedCompany, setSelectedCompany] = useState<TradeCompany | CompanySearchResult | null>(
     company ?? null
   )
+  const [showManualEntry, setShowManualEntry] = useState(false)
   const [date, setDate] = useState<Date | undefined>()
   const [quantity, setQuantity] = useState("")
   const [note, setNote] = useState("")
@@ -67,12 +69,11 @@ export function TradeDialog({ type, open, onOpenChange, company, ownedQuantity }
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Cripto/Renda Fixa/Outros have no market-data provider — there's no
-  // historical series to look up, so the manual price field is mandatory
-  // and shown directly (no "editar preço" toggle) rather than optional.
-  const requiresManualPrice = selectedCompany
-    ? !getAssetCategoryMeta(selectedCompany.assetClass).hasMarketData
-    : false
+  // A manually-created company (see findOrCreateManualCompany) has no
+  // historical price series to look up, regardless of what its category
+  // normally offers — a hand-added "Fundo de Investimento" filed under FII
+  // needs a manual price just like any Cripto/Renda Fixa/Outros entry does.
+  const requiresManualPrice = selectedCompany ? selectedCompany.isManualEntry : false
   const effectiveShowOverride = showPriceOverride || requiresManualPrice
 
   const previewInputsValid =
@@ -104,6 +105,7 @@ export function TradeDialog({ type, open, onOpenChange, company, ownedQuantity }
   function resetForm() {
     setSelectedCategory(company?.assetClass ?? null)
     setSelectedCompany(company ?? null)
+    setShowManualEntry(false)
     setDate(undefined)
     setQuantity("")
     setNote("")
@@ -192,28 +194,51 @@ export function TradeDialog({ type, open, onOpenChange, company, ownedQuantity }
               {!company && categoryMeta && (
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory(null)}
+                  onClick={() => {
+                    setSelectedCategory(null)
+                    setShowManualEntry(false)
+                  }}
                   className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
                 >
                   ← {categoryMeta.emoji} {categoryMeta.label}
                 </button>
               )}
-              {categoryMeta?.hasMarketData ? (
-                <CompanySearchCombobox
-                  assetClass={categoryMeta.value}
-                  onSelect={(found) => setSelectedCompany(found)}
-                />
+              {categoryMeta?.hasMarketData && !showManualEntry ? (
+                <>
+                  <CompanySearchCombobox
+                    assetClass={categoryMeta.value}
+                    onSelect={(found) => setSelectedCompany(found)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowManualEntry(true)}
+                    className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Não encontrou o que procura? Adicionar manualmente
+                  </button>
+                </>
               ) : categoryMeta ? (
-                <ManualCompanyForm
-                  assetClass={categoryMeta.value as "CRYPTO" | "FIXED_INCOME" | "OTHER"}
-                  onCreated={(created) => setSelectedCompany(created)}
-                />
+                <>
+                  {categoryMeta.hasMarketData && (
+                    <button
+                      type="button"
+                      onClick={() => setShowManualEntry(false)}
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      ← Voltar para a busca
+                    </button>
+                  )}
+                  <ManualCompanyForm
+                    assetClass={categoryMeta.value}
+                    onCreated={(created) => setSelectedCompany(created)}
+                  />
+                </>
               ) : null}
             </>
           ) : (
             <>
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <TickerBadge ticker={selectedCompany.ticker} size="sm" />
+                <TickerBadge ticker={selectedCompany.ticker} logoUrl={selectedCompany.logoUrl} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{selectedCompany.ticker}</p>
                   <p className="truncate text-xs text-muted-foreground">{selectedCompany.name}</p>

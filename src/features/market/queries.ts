@@ -17,6 +17,7 @@ const POPULAR_TICKERS = [
 interface CompanyRow {
   ticker: string
   name: string
+  logoUrl: string | null
   priceCents: number
   priceChangePct: unknown
 }
@@ -25,6 +26,7 @@ function toListItem(company: CompanyRow, dividendYield = 0): CompanyListItem {
   return {
     ticker: company.ticker,
     name: company.name,
+    logoUrl: company.logoUrl,
     priceCents: company.priceCents,
     changePct: Number(company.priceChangePct),
     dividendYield,

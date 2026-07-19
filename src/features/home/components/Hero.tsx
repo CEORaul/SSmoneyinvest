@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button"
 import { DashboardMockup } from "@/features/home/components/DashboardMockup"
 import { TickerSearch } from "@/features/home/components/TickerSearch"
 
-export function Hero() {
+interface HeroProps {
+  isAuthenticated: boolean
+}
+
+export function Hero({ isAuthenticated }: HeroProps) {
   return (
     <section className="relative overflow-hidden px-6 pt-16 pb-24 sm:pt-20">
       <div
@@ -61,8 +65,12 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mt-6 flex flex-col gap-3 sm:flex-row"
         >
-          <Button size="lg" nativeButton={false} render={<Link href="/register" />}>
-            Começar Gratuitamente
+          <Button
+            size="lg"
+            nativeButton={false}
+            render={<Link href={isAuthenticated ? "/carteira" : "/register"} />}
+          >
+            {isAuthenticated ? "Ir para Carteira" : "Começar Gratuitamente"}
           </Button>
           <Button
             size="lg"

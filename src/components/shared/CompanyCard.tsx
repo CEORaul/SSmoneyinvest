@@ -16,7 +16,7 @@ export function CompanyCard({ company, metric = "change" }: CompanyCardProps) {
       href={`/empresa/${company.ticker}`}
       className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
     >
-      <TickerBadge ticker={company.ticker} />
+      <TickerBadge ticker={company.ticker} logoUrl={company.logoUrl} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{company.ticker}</p>
         <p className="truncate text-xs text-muted-foreground">{company.name}</p>

@@ -1,6 +1,14 @@
 import { z } from "zod"
 
+import type { AssetClass } from "@/generated/prisma/client"
+import { ASSET_CATEGORIES } from "@/features/portfolio/asset-category"
+
 const positiveQuantity = z.coerce.number().positive("A quantidade deve ser maior que zero.")
+
+const ASSET_CLASS_VALUES = ASSET_CATEGORIES.map((category) => category.value) as [
+  AssetClass,
+  ...AssetClass[],
+]
 
 export const tradeSchema = z.object({
   companyId: z.string().min(1, "Selecione um ativo."),
@@ -32,8 +40,10 @@ export const adjustmentSchema = z.object({
 })
 export type AdjustmentInput = z.infer<typeof adjustmentSchema>
 
-// Only the categories with no market-data provider — STOCK/FII/ETF/BDR
-// always come from a sync, never a manual entry.
+// Any category can fall back to a manual entry — Cripto/Renda Fixa/Outros
+// always use it (no market-data provider covers them at all), and a synced
+// category like FII can use it too for something the directory doesn't
+// cover (e.g. a non-listed "Fundo de Investimento").
 export const manualCompanySchema = z.object({
   ticker: z
     .string()
@@ -42,6 +52,6 @@ export const manualCompanySchema = z.object({
     .max(20, "Máximo de 20 caracteres.")
     .transform((value) => value.toUpperCase()),
   name: z.string().trim().min(1, "Informe um nome.").max(200),
-  assetClass: z.enum(["CRYPTO", "FIXED_INCOME", "OTHER"]),
+  assetClass: z.enum(ASSET_CLASS_VALUES),
 })
 export type ManualCompanyInput = z.infer<typeof manualCompanySchema>

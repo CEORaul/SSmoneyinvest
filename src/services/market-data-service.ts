@@ -81,6 +81,10 @@ export const marketDataService = {
             lastQuoteAt: new Date(),
             lastQuoteAttempts: 1,
             lastQuoteStatus: "OK",
+            // A real directory sync just produced this row — self-heals a
+            // manually-created company (see findOrCreateManualCompany) the
+            // moment a matching real ticker shows up in the provider feed.
+            isManualEntry: false,
           }
 
           return prisma.company.upsert({

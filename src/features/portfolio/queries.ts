@@ -12,6 +12,7 @@ export interface PortfolioPositionRow {
   name: string
   logoUrl: string | null
   assetClass: AssetClass
+  isManualEntry: boolean
   quantity: string
   averagePriceCents: number
   currentPriceCents: number
@@ -150,6 +151,7 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
       name: position.company.name,
       logoUrl: position.company.logoUrl,
       assetClass: position.company.assetClass,
+      isManualEntry: position.company.isManualEntry,
       quantity: position.quantity.toString(),
       averagePriceCents: position.averagePriceCents,
       currentPriceCents: position.company.priceCents,
@@ -194,6 +196,7 @@ export interface CompanySearchResult {
   assetClass: AssetClass
   logoUrl: string | null
   priceCents: number
+  isManualEntry: boolean
 }
 
 const COMPANY_SEARCH_RESULT_SELECT = {
@@ -203,6 +206,7 @@ const COMPANY_SEARCH_RESULT_SELECT = {
   assetClass: true,
   logoUrl: true,
   priceCents: true,
+  isManualEntry: true,
 } as const
 
 /// Backs the autocomplete in "Adicionar Investimento" — search by ticker
@@ -237,15 +241,20 @@ export async function getPositionTransactions(profileId: string, companyId: stri
   })
 }
 
-/// For categories with no market-data provider (Cripto/Renda Fixa/Outros) —
-/// the portfolio's "Adicionar Investimento" flow creates a bare Company row
-/// on the fly instead of picking one from a synced directory. Idempotent by
-/// ticker: re-adding the same identifier in the same category reuses the
-/// existing row rather than erroring.
+/// Backs the "Adicionar manualmente" fallback in "Adicionar Investimento" —
+/// available for every category, not just the ones with no market-data
+/// provider (Cripto/Renda Fixa/Outros always use it; a category like FII can
+/// fall back to it too, for a fund the synced directory doesn't cover, e.g.
+/// a non-listed "Fundo de Investimento"). Creates a bare Company row on the
+/// fly instead of picking one from search. Idempotent by ticker: re-adding
+/// the same identifier in the same category reuses the existing row rather
+/// than erroring. If a real directory sync later lands a matching ticker,
+/// isManualEntry flips back to false automatically (see
+/// market-data-service.ts) and the company behaves like any synced one.
 export async function findOrCreateManualCompany(input: {
   ticker: string
   name: string
-  assetClass: Extract<AssetClass, "CRYPTO" | "FIXED_INCOME" | "OTHER">
+  assetClass: AssetClass
 }): Promise<CompanySearchResult> {
   const existing = await prisma.company.findUnique({
     where: { ticker: input.ticker },
@@ -266,6 +275,7 @@ export async function findOrCreateManualCompany(input: {
       name: input.name,
       assetClass: input.assetClass,
       priceCents: 0,
+      isManualEntry: true,
     },
     select: COMPANY_SEARCH_RESULT_SELECT,
   })

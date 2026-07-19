@@ -3,15 +3,19 @@ import { CtaSection } from "@/features/home/components/CtaSection"
 import { Hero } from "@/features/home/components/Hero"
 import { MarketMoversSection } from "@/features/home/components/MarketMoversSection"
 import { PopularCompaniesSection } from "@/features/home/components/PopularCompaniesSection"
+import { getOptionalProfile } from "@/lib/auth/session"
 
-export default function HomePage() {
+export default async function HomePage() {
+  const profile = await getOptionalProfile()
+  const isAuthenticated = !!profile
+
   return (
     <>
-      <Hero />
+      <Hero isAuthenticated={isAuthenticated} />
       <MarketMoversSection />
       <BenefitsSection />
       <PopularCompaniesSection />
-      <CtaSection />
+      <CtaSection isAuthenticated={isAuthenticated} />
     </>
   )
 }

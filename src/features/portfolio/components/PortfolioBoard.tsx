@@ -79,6 +79,7 @@ export function PortfolioBoard({ byCategory }: PortfolioBoardProps) {
         name: activeAction.position.name,
         logoUrl: activeAction.position.logoUrl,
         assetClass: activeAction.position.assetClass,
+        isManualEntry: activeAction.position.isManualEntry,
       }
     : null
 

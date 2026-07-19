@@ -7,23 +7,27 @@ import type { AssetClass } from "@/generated/prisma/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FormField } from "@/components/shared/FormField"
+import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { createManualCompanyAction } from "@/features/portfolio/actions"
 import type { CompanySearchResult } from "@/features/portfolio/queries"
 
 interface ManualCompanyFormProps {
-  assetClass: Extract<AssetClass, "CRYPTO" | "FIXED_INCOME" | "OTHER">
+  assetClass: AssetClass
   onCreated: (company: CompanySearchResult) => void
 }
 
-/// Stands in for the search box on categories with no market-data provider
-/// connected yet — the user names the investment themselves instead of
-/// picking it from a synced list. Trades against it always require the
+/// Stands in for the search box when a category has no market-data provider
+/// at all (Cripto/Renda Fixa/Outros), or as an explicit fallback when the
+/// synced directory doesn't cover a specific investment (e.g. a non-listed
+/// "Fundo de Investimento" filed under FII) — the user names it themselves
+/// instead of picking it from search. Trades against it always require the
 /// manual price override (see TradeDialog), since there's no historical
 /// series to look up automatically.
 export function ManualCompanyForm({ assetClass, onCreated }: ManualCompanyFormProps) {
   const [ticker, setTicker] = useState("")
   const [name, setName] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const hasMarketData = getAssetCategoryMeta(assetClass).hasMarketData
 
   async function handleSubmit() {
     if (!ticker.trim() || !name.trim()) return
@@ -43,8 +47,9 @@ export function ManualCompanyForm({ assetClass, onCreated }: ManualCompanyFormPr
   return (
     <div className="space-y-4 rounded-lg border border-dashed border-border p-3">
       <p className="text-xs text-muted-foreground">
-        Ainda não há uma fonte de dados conectada para esta categoria — identifique o
-        investimento manualmente. O preço de cada operação também será informado por você.
+        {hasMarketData
+          ? "Não encontrado na base sincronizada — identifique o investimento manualmente. O preço de cada operação também será informado por você."
+          : "Ainda não há uma fonte de dados conectada para esta categoria — identifique o investimento manualmente. O preço de cada operação também será informado por você."}
       </p>
 
       <FormField label="Identificador" htmlFor="manual-ticker">

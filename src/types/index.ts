@@ -5,6 +5,7 @@ export type { AssetClass, TransactionType, DividendType } from "@/generated/pris
 export interface CompanyListItem {
   ticker: string
   name: string
+  logoUrl: string | null
   priceCents: number
   changePct: number
   dividendYield: number
