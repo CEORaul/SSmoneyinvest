@@ -98,21 +98,57 @@ model Company {
   /// (the token-gated "detail" call) — distinct from `updatedAt`, which also
   /// changes on every cheap directory-sync price refresh. Null = never synced.
   detailsSyncedAt   DateTime?
+  /// Origin tracking for whatever is currently in priceCents/priceChangePct/
+  /// marketCapCents — which provider supplied it, when, how long the call
+  /// took, how many providers had to be tried before one produced a value
+  /// that passed validation, and the outcome. Written by MarketDataService
+  /// on every successful (or rejected-but-handled) quote update.
+  lastQuoteProvider   String?
+  lastQuoteAt         DateTime?
+  lastQuoteLatencyMs  Int?
+  /// Number of different providers attempted to land this value — 1 when
+  /// BRAPI answered validly on the first try, 2+ when a fallback/re-check
+  /// was needed. Not HTTP retry count (that's internal to fetchWithRetry).
+  lastQuoteAttempts   Int?
+  /// "OK" | "REJECTED_KEPT_LAST_VALID" — see QuoteValidationAlert for why,
+  /// when the latter.
+  lastQuoteStatus     String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  stock             Stock?
-  fii               Fii?
-  etf               Etf?
-  priceHistory      PriceHistoryPoint[]
-  dividendHistory   DividendPayment[]
-  favorites         Favorite[]
-  portfolioEntries  PortfolioPosition[]
-  transactions      Transaction[]
+  stock                  Stock?
+  fii                    Fii?
+  etf                    Etf?
+  priceHistory           PriceHistoryPoint[]
+  dividendHistory        DividendPayment[]
+  favorites              Favorite[]
+  portfolioEntries       PortfolioPosition[]
+  transactions           Transaction[]
+  quoteValidationAlerts  QuoteValidationAlert[]
 
   @@index([assetClass])
   @@index([sector])
   @@map("companies")
+}
+
+/// Written whenever a fetched quote fails validateQuote() and no provider
+/// among the ones tried produced a plausible alternative — the last known
+/// good value in Company is deliberately left untouched, and this row is
+/// the audit trail for why nothing changed. Not a call-by-call API log
+/// (that's ProviderHealth's job at the aggregate level); this only exists
+/// when there was something to flag.
+model QuoteValidationAlert {
+  id                 String   @id @default(uuid())
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider           String
+  reasons            String[]
+  rejectedPriceCents Int?
+  previousPriceCents Int?
+  createdAt          DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@map("quote_validation_alerts")
 }
 
 /// Stock-specific fundamentals (indicadores fundamentalistas).

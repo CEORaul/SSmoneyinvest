@@ -140,6 +140,7 @@ export class BrapiProvider implements MarketDataProvider {
         priceChangePct: item.change ?? 0,
         marketCapCents:
           item.market_cap != null ? BigInt(Math.round(item.market_cap * 100)) : null,
+        source: this.name,
       })
     }
     return entries

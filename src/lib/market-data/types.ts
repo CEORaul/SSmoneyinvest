@@ -12,6 +12,10 @@ export interface CompanyDirectoryEntry {
   priceCents: number
   priceChangePct: number
   marketCapCents: bigint | null
+  /// Same purpose as CompanyDetails.source — currently always the one
+  /// provider whose capabilities.directory is true, but tracked per-entry
+  /// so that stays true even if that ever changes.
+  source: string
 }
 
 export interface PricePoint {
