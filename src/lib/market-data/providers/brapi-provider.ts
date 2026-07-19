@@ -185,6 +185,7 @@ export class BrapiProvider implements MarketDataProvider {
       priceToEarnings: result.priceEarnings,
       priceHistory,
       dividends,
+      source: this.name,
     }
   }
 }

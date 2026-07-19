@@ -1,9 +1,8 @@
 import "server-only"
 
+import { TRAILING_DIVIDEND_WINDOW_DAYS } from "@/features/market/dividend-yield"
 import { prisma } from "@/lib/prisma"
 import type { CompanyListItem } from "@/types"
-
-const TRAILING_DIVIDEND_WINDOW_DAYS = 365
 
 const POPULAR_TICKERS = [
   "PETR4",

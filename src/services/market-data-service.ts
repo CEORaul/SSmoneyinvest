@@ -78,7 +78,7 @@ export const marketDataService = {
   async refreshCompanyDetails(
     ticker: string,
     range: PriceRange = "1y"
-  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  ): Promise<{ ok: true; source: string } | { ok: false; reason: string }> {
     const provider = getMarketDataProvider()
 
     const company = await prisma.company.findUnique({ where: { ticker } })
@@ -153,7 +153,7 @@ export const marketDataService = {
       return { ok: false, reason }
     }
 
-    return { ok: true }
+    return { ok: true, source: details.source }
   },
 
   /// Marks that a details refresh was attempted for this company, even when

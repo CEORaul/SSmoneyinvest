@@ -37,6 +37,11 @@ export interface CompanyDetails {
   priceToEarnings: number | null
   priceHistory: PricePoint[]
   dividends: DividendEvent[]
+  /// The provider's own `name` (e.g. "brapi.dev", "yahoo-finance") — lets
+  /// callers that persist this data (portfolio-service's historical price
+  /// lookup) record which source actually supplied it, even when called
+  /// through ProviderManager's failover.
+  source: string
 }
 
 export type PriceRange = "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y" | "max"

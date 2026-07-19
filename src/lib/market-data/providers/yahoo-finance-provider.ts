@@ -126,6 +126,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
       priceToEarnings: null,
       priceHistory: mapPriceHistory(result),
       dividends: mapDividends(result),
+      source: this.name,
     }
   }
 }

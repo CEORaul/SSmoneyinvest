@@ -307,10 +307,23 @@ enum TransactionType {
   BUY
   SELL
   DIVIDEND
+  JCP
+  /// Bonificação — free shares received, no cash outlay; spreads the
+  /// existing cost basis over more shares (lowers average price).
+  BONUS
+  /// Desdobramento — quantity increases, average price decreases
+  /// proportionally; total invested is unchanged.
+  SPLIT
+  /// Grupamento — quantity decreases, average price increases
+  /// proportionally; total invested is unchanged.
+  REVERSE_SPLIT
 }
 
-/// Immutable ledger of buy/sell/dividend events. Source of truth that
-/// PortfolioPosition is aggregated from.
+/// Immutable ledger of buy/sell/dividend/corporate-action events. Source of
+/// truth that PortfolioPosition is aggregated from — never written to
+/// directly, always through src/services/portfolio-service.ts, which
+/// recomputes the whole position by replaying every transaction in
+/// chronological order (see recomputePosition()).
 model Transaction {
   id          String          @id @default(uuid())
   profileId   String
@@ -321,6 +334,21 @@ model Transaction {
   quantity    Decimal         @db.Decimal(18, 8)
   priceCents  Int
   totalCents  BigInt
+  feesCents   Int             @default(0)
+  /// Provider name that supplied the historical price ("brapi.dev",
+  /// "yahoo-finance"), "cache" if it was already stored, or "manual" for
+  /// an operator-entered override. Plain string, not an enum — a new
+  /// provider shouldn't need a migration to be recorded here.
+  priceSource String?
+  /// True when the price came from the "Editar preço da operação" override
+  /// rather than the automatic historical lookup.
+  isManualPrice      Boolean  @default(false)
+  /// Only set on SELL rows — realized gain/loss for this specific sale,
+  /// computed against the running average price at the moment it occurred.
+  /// Recomputed (not just set once) whenever an earlier transaction for
+  /// the same position is edited or deleted, since that can change the
+  /// average price this sale was measured against.
+  realizedProfitCents BigInt?
   date        DateTime
   note        String?
   createdAt   DateTime        @default(now())
