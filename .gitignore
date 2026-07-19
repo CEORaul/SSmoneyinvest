@@ -43,3 +43,14 @@ next-env.d.ts
 
 # prisma
 /src/generated/prisma
+
+# credentials, keys, tokens (belt-and-suspenders on top of .env* above)
+*.key
+*.pfx
+*credentials*.json
+*service-account*.json
+
+# temp files
+*.tmp
+*.temp
+*.log
