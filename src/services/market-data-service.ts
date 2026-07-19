@@ -84,7 +84,7 @@ export const marketDataService = {
             // A real directory sync just produced this row — self-heals a
             // manually-created company (see findOrCreateManualCompany) the
             // moment a matching real ticker shows up in the provider feed.
-            isManualEntry: false,
+            priceSource: "AUTO" as const,
           }
 
           return prisma.company.upsert({

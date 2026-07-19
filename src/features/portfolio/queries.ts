@@ -1,8 +1,8 @@
 import "server-only"
 
-import type { AssetClass } from "@/generated/prisma/client"
+import type { AssetClass, PriceSource } from "@/generated/prisma/client"
 import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
-import { ASSET_CATEGORIES } from "@/features/portfolio/asset-category"
+import { ASSET_CATEGORIES, getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { prisma } from "@/lib/prisma"
 
 export interface PortfolioPositionRow {
@@ -12,7 +12,7 @@ export interface PortfolioPositionRow {
   name: string
   logoUrl: string | null
   assetClass: AssetClass
-  isManualEntry: boolean
+  priceSource: PriceSource
   quantity: string
   averagePriceCents: number
   currentPriceCents: number
@@ -151,7 +151,7 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
       name: position.company.name,
       logoUrl: position.company.logoUrl,
       assetClass: position.company.assetClass,
-      isManualEntry: position.company.isManualEntry,
+      priceSource: position.company.priceSource,
       quantity: position.quantity.toString(),
       averagePriceCents: position.averagePriceCents,
       currentPriceCents: position.company.priceCents,
@@ -196,7 +196,7 @@ export interface CompanySearchResult {
   assetClass: AssetClass
   logoUrl: string | null
   priceCents: number
-  isManualEntry: boolean
+  priceSource: PriceSource
 }
 
 const COMPANY_SEARCH_RESULT_SELECT = {
@@ -206,7 +206,7 @@ const COMPANY_SEARCH_RESULT_SELECT = {
   assetClass: true,
   logoUrl: true,
   priceCents: true,
-  isManualEntry: true,
+  priceSource: true,
 } as const
 
 /// Backs the autocomplete in "Adicionar Investimento" — search by ticker
@@ -249,8 +249,8 @@ export async function getPositionTransactions(profileId: string, companyId: stri
 /// fly instead of picking one from search. Idempotent by ticker: re-adding
 /// the same identifier in the same category reuses the existing row rather
 /// than erroring. If a real directory sync later lands a matching ticker,
-/// isManualEntry flips back to false automatically (see
-/// market-data-service.ts) and the company behaves like any synced one.
+/// priceSource flips back to AUTO automatically (see market-data-service.ts)
+/// and the company behaves like any synced one.
 export async function findOrCreateManualCompany(input: {
   ticker: string
   name: string
@@ -275,7 +275,8 @@ export async function findOrCreateManualCompany(input: {
       name: input.name,
       assetClass: input.assetClass,
       priceCents: 0,
-      isManualEntry: true,
+      priceSource: "MANUAL",
+      listedOnExchange: getAssetCategoryMeta(input.assetClass).listedOnExchangeDefault,
     },
     select: COMPANY_SEARCH_RESULT_SELECT,
   })

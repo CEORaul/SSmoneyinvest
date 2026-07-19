@@ -94,6 +94,35 @@ enum AssetClass {
   OTHER
 }
 
+/// Where a Company's current price (and, by extension, whether a trade
+/// against it needs a manual price at entry time) comes from. Replaces the
+/// old isManualEntry boolean — an enum scales to new origins without ever
+/// needing another boolean bolted on next to it.
+enum PriceSource {
+  /// Synced automatically by a market-data provider (BRAPI today, whichever
+  /// ProviderManager picks tomorrow). The default for every Company row a
+  /// directory/detail sync creates or touches.
+  AUTO
+  /// Entered by hand via the portfolio's "Adicionar Investimento" flow
+  /// (findOrCreateManualCompany) — no provider covers this ticker, so every
+  /// trade against it requires a manual price at entry time. A real
+  /// directory sync flips this back to AUTO the moment it upserts a
+  /// matching ticker for real (see MarketDataService.refreshCompanyDirectory).
+  MANUAL
+  /// Not implemented yet — reserved for a future Open Finance integration,
+  /// where a connected institution supplies the position/price directly
+  /// (e.g. a CDB or LCI held at a bank, synced via the bank's Open Finance
+  /// API rather than typed in). Like AUTO, trades against an OPEN_FINANCE
+  /// company should never require a manual price once that integration
+  /// exists — the price arrives with the sync, not from the user.
+  OPEN_FINANCE
+  /// Not implemented yet — reserved for a future brokerage-note/CSV
+  /// importer, where the operation (and its price) is read from an imported
+  /// document rather than typed in one field at a time. Like AUTO/
+  /// OPEN_FINANCE, doesn't need a manual price prompt — the import brings it.
+  IMPORTED
+}
+
 /// Canonical registry for every listed asset (ação, FII ou ETF). Holds the
 /// fields shared across all three classes; class-specific fundamentals live
 /// in the 1:1 Stock/Fii/Etf extension tied to `assetClass`.
@@ -130,13 +159,17 @@ model Company {
   /// "OK" | "REJECTED_KEPT_LAST_VALID" — see QuoteValidationAlert for why,
   /// when the latter.
   lastQuoteStatus     String?
-  /// True when this row was created by hand via the portfolio's "Adicionar
-  /// Investimento" flow (findOrCreateManualCompany) instead of a market-data
-  /// sync — drives whether trades against it require a manual price (no
-  /// historical series to look up). Any category can have both manual and
-  /// synced companies side by side; a real directory sync flips this back to
-  /// false the moment it upserts a matching ticker for real.
-  isManualEntry     Boolean    @default(false)
+  /// See the PriceSource enum doc comments. Drives whether trades against
+  /// this company require a manual price at entry time (only MANUAL does).
+  priceSource       PriceSource @default(AUTO)
+  /// True when this instrument trades on a public exchange (B3, a crypto
+  /// exchange, ...) at all — independent of priceSource/whether *we* sync
+  /// it. E.g. Bitcoin is exchange-traded (true) even when added manually
+  /// because no provider is wired up yet; a CDB or a Fundo Multimercado is
+  /// never exchange-traded (false) regardless of how its price is sourced.
+  /// Not surfaced in any UI yet — purely architectural prep for filtering/
+  /// grouping once more categories (Renda Fixa sub-types, Outros) exist.
+  listedOnExchange  Boolean    @default(true)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 

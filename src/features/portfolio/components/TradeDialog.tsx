@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import type { AssetClass } from "@/generated/prisma/client"
+import type { AssetClass, PriceSource } from "@/generated/prisma/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -31,7 +31,7 @@ export interface TradeCompany {
   name: string
   logoUrl: string | null
   assetClass: AssetClass
-  isManualEntry: boolean
+  priceSource: PriceSource
 }
 
 interface TradeDialogProps {
@@ -69,11 +69,13 @@ export function TradeDialog({ type, open, onOpenChange, company, ownedQuantity }
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // A manually-created company (see findOrCreateManualCompany) has no
-  // historical price series to look up, regardless of what its category
-  // normally offers — a hand-added "Fundo de Investimento" filed under FII
-  // needs a manual price just like any Cripto/Renda Fixa/Outros entry does.
-  const requiresManualPrice = selectedCompany ? selectedCompany.isManualEntry : false
+  // Only PriceSource.MANUAL has no historical series to look up, regardless
+  // of what its category normally offers — a hand-added "Fundo de
+  // Investimento" filed under FII needs a manual price just like any
+  // Cripto/Renda Fixa/Outros entry does. AUTO always resolves automatically;
+  // OPEN_FINANCE/IMPORTED (not implemented yet) will too, once they exist —
+  // both bring their own price with the sync/import, never a manual prompt.
+  const requiresManualPrice = selectedCompany?.priceSource === "MANUAL"
   const effectiveShowOverride = showPriceOverride || requiresManualPrice
 
   const previewInputsValid =

@@ -20,11 +20,21 @@ const BASE_URL = process.env.BRAPI_BASE_URL ?? "https://brapi.dev/api"
 const rateLimiter = new RateLimiter({ maxRequests: 20, intervalMs: 10_000 })
 
 // `type`/`subType` combinations from /quote/list that map onto our
-// AssetClass. FI-Agro/FI-Infra/FIP funds are still out of scope (no
-// AssetClass bucket fits them yet) and skipped.
+// AssetClass. FI-Agro (Fundos de Investimento nas Cadeias Produtivas
+// Agroindustriais), FI-Infra (Fundos de Investimento em Infraestrutura),
+// FIPs (Fundos de Investimento em Participações), and the handful of quota
+// funds brapi returns with no subType at all trade on B3 exactly like FIIs
+// do (ticker ending "11", cotas, monthly rendimentos) and are grouped under
+// FII here — no distinct AssetClass bucket exists for them yet (a future
+// "Fundos de Investimento" category, per asset-category.ts, could split
+// these out without touching this map's shape).
 const ASSET_CLASS_BY_TYPE: Record<string, AssetClass | undefined> = {
   "stock|stock": "STOCK",
   "fund|fii": "FII",
+  "fund|fi-agro": "FII",
+  "fund|fi-infra": "FII",
+  "fund|fip": "FII",
+  "fund|": "FII",
   "fund|etf": "ETF",
   "bdr|bdr": "BDR",
   // Units (e.g. TAEE11, SAPR11) bundle ON+PN shares into one ticket — traded
