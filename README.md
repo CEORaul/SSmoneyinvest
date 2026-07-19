@@ -42,3 +42,28 @@ src/
 ## Banco de dados
 
 Modelos Prisma em `prisma/schema.prisma`: `Profile`, `Company` (+ extensões `Stock`/`Fii`/`Etf`), `PriceHistoryPoint`, `DividendPayment`, `Favorite`, `PortfolioPosition`, `Transaction`.
+
+## Sincronização de dados de mercado
+
+A arquitetura de sync (`src/lib/market-data/**`, `src/services/market-data-service.ts`, `src/features/market-sync/**`) é a mesma independentemente de como ela é disparada — por cron da Vercel, por curl manual, ou pelo botão administrativo abaixo. As rotas `/api/cron/companies` (diretório completo — preços/listagem) e `/api/cron/company-details` (detalhes por lote — dividendos/histórico/fundamentos) continuam existindo e exigem `Authorization: Bearer $CRON_SECRET`.
+
+**Cron jobs temporariamente removidos do `vercel.json`** — o plano Hobby da Vercel só permite cron jobs de frequência diária ou menor; `/api/cron/companies` rodava a cada 30 min em horário de pregão, o que bloqueava o deploy. Enquanto o projeto estiver no Hobby, a sincronização é manual, via `/admin/sync` (autenticado) ou via curl com `CRON_SECRET`.
+
+**Para restaurar a sincronização automática** (ao migrar para o plano Pro ou superior), recoloque em `vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/companies",
+      "schedule": "*/30 8-18 * * 1-5"
+    },
+    {
+      "path": "/api/cron/company-details",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
+```
+
+Nada mais precisa mudar — as rotas, o `CRON_SECRET` e toda a lógica de sync já estão prontos, só a configuração de agendamento foi retirada.
