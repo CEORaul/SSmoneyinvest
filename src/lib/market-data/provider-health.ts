@@ -8,11 +8,19 @@ import { prisma } from "@/lib/prisma"
 // a provider out of rotation, but a real outage should.
 const OFFLINE_THRESHOLD = 3
 
+// Classic circuit-breaker "half-open" cooldown: once this much time has
+// passed since an OFFLINE provider was last checked, ProviderManager gives
+// it one more chance even while a lower-priority provider is healthy —
+// otherwise a recovered BRAPI would never be retried until Yahoo itself
+// failed too, since OFFLINE providers are normally excluded outright.
+export const OFFLINE_RETRY_COOLDOWN_MS = 5 * 60 * 1000
+
 export interface ProviderHealthSnapshot {
   providerName: string
   status: ProviderStatus
   consecutiveFailures: number
   lastError: string | null
+  lastCheckedAt: Date
 }
 
 /// Called once per provider call attempt, success or failure — the single
