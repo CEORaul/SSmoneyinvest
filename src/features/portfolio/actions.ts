@@ -2,15 +2,19 @@
 
 import { revalidatePath } from "next/cache"
 
+import type { AssetClass } from "@/generated/prisma/client"
 import {
   adjustmentSchema,
   incomeSchema,
+  manualCompanySchema,
   tradeSchema,
   type AdjustmentInput,
   type IncomeInput,
+  type ManualCompanyInput,
   type TradeInput,
 } from "@/features/portfolio/schemas"
 import {
+  findOrCreateManualCompany,
   getPositionTransactions,
   searchCompanies,
   type CompanySearchResult,
@@ -36,8 +40,35 @@ function toErrorResult(error: unknown): ActionResult {
   return { ok: false, error: message }
 }
 
-export async function searchCompaniesAction(query: string): Promise<CompanySearchResult[]> {
-  return searchCompanies(query)
+export async function searchCompaniesAction(
+  query: string,
+  assetClass?: AssetClass
+): Promise<CompanySearchResult[]> {
+  return searchCompanies(query, assetClass)
+}
+
+export interface CreateManualCompanyResult extends ActionResult {
+  company?: CompanySearchResult
+}
+
+/// For Cripto/Renda Fixa/Outros — categories with no market-data provider
+/// to autocomplete against yet. Creates (or reuses) a bare Company row so
+/// the trade dialog has something to attach the transaction to.
+export async function createManualCompanyAction(
+  input: ManualCompanyInput
+): Promise<CreateManualCompanyResult> {
+  const parsed = manualCompanySchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
+  }
+
+  await requireUser()
+  try {
+    const company = await findOrCreateManualCompany(parsed.data)
+    return { ok: true, company }
+  } catch (error) {
+    return toErrorResult(error)
+  }
 }
 
 export interface TransactionRow {

@@ -3,20 +3,24 @@
 import { Loader2, Search } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import type { AssetClass } from "@/generated/prisma/client"
 import { Input } from "@/components/ui/input"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { searchCompaniesAction } from "@/features/portfolio/actions"
 import type { CompanySearchResult } from "@/features/portfolio/queries"
 
 interface CompanySearchComboboxProps {
+  /** Scopes the search to one category — always set once a category is picked. */
+  assetClass: AssetClass
   onSelect: (company: CompanySearchResult) => void
 }
 
 /// Autocomplete by ticker (PETR4) or company name (Petrobras) — the entry
-/// point for "Adicionar Ativo". No shadcn Command component in this
-/// project's registry (Nova/Base UI preset doesn't ship one), so this is a
-/// small hand-rolled combobox instead of pulling in a new dependency for it.
-export function CompanySearchCombobox({ onSelect }: CompanySearchComboboxProps) {
+/// point for "Adicionar Investimento" once a category is picked. No shadcn
+/// Command component in this project's registry (Nova/Base UI preset
+/// doesn't ship one), so this is a small hand-rolled combobox instead of
+/// pulling in a new dependency for it.
+export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchComboboxProps) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<CompanySearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -38,7 +42,7 @@ export function CompanySearchCombobox({ onSelect }: CompanySearchComboboxProps) 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true)
     const timeout = setTimeout(() => {
-      searchCompaniesAction(query).then((found) => {
+      searchCompaniesAction(query, assetClass).then((found) => {
         setResults(found)
         setIsLoading(false)
         setIsOpen(true)
@@ -46,7 +50,7 @@ export function CompanySearchCombobox({ onSelect }: CompanySearchComboboxProps) 
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [query])
+  }, [query, assetClass])
 
   const displayResults = query.trim().length === 0 ? [] : results
 

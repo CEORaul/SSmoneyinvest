@@ -75,6 +75,23 @@ enum AssetClass {
   STOCK
   FII
   ETF
+  /// BDR (Brazilian Depositary Receipt) — synced from brapi's directory
+  /// like STOCK/FII/ETF, just a different `type|subType` bucket.
+  BDR
+  /// No market-data provider wired up yet — Company rows are created
+  /// manually via the portfolio's "Adicionar Investimento" flow, and
+  /// trades always require the manual price override (no historical
+  /// lookup is possible without a real data source).
+  CRYPTO
+  /// Renda Fixa (Tesouro Selic/Prefixado/IPCA+, CDB, LCI, LCA, debêntures,
+  /// CRI/CRA, fundos DI/RF, ...). Same manual-entry-only status as CRYPTO
+  /// for now — the category exists and positions can be tracked, but sub-
+  /// instrument-type modeling and real pricing feeds are a later phase.
+  FIXED_INCOME
+  /// Catch-all for anything not covered above (fundos de investimento,
+  /// previdência, REITs, commodities, ouro, prata, ...) — same manual-
+  /// entry-only status.
+  OTHER
 }
 
 /// Canonical registry for every listed asset (ação, FII ou ETF). Holds the

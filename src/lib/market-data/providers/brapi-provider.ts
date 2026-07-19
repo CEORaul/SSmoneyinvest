@@ -20,12 +20,13 @@ const BASE_URL = process.env.BRAPI_BASE_URL ?? "https://brapi.dev/api"
 const rateLimiter = new RateLimiter({ maxRequests: 20, intervalMs: 10_000 })
 
 // `type`/`subType` combinations from /quote/list that map onto our
-// AssetClass. Everything else (BDRs, units, FI-Agro/FI-Infra/FIP funds) is
-// out of scope per the brief (Ações B3, FIIs, ETFs only) and skipped.
+// AssetClass. FI-Agro/FI-Infra/FIP funds are still out of scope (no
+// AssetClass bucket fits them yet) and skipped.
 const ASSET_CLASS_BY_TYPE: Record<string, AssetClass | undefined> = {
   "stock|stock": "STOCK",
   "fund|fii": "FII",
   "fund|etf": "ETF",
+  "bdr|bdr": "BDR",
   // Units (e.g. TAEE11, SAPR11) bundle ON+PN shares into one ticket — traded
   // and treated as ordinary equities, not a distinct asset class here.
   "stock|unit": "STOCK",

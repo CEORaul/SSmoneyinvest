@@ -1,14 +1,14 @@
 import { PackageOpen } from "lucide-react"
 
-import { AddAssetButton } from "@/features/portfolio/components/AddAssetButton"
+import { AddInvestmentButton } from "@/features/portfolio/components/AddInvestmentButton"
+import { PortfolioBoard } from "@/features/portfolio/components/PortfolioBoard"
 import { PortfolioSummaryCards } from "@/features/portfolio/components/PortfolioSummaryCards"
-import { PositionsTable } from "@/features/portfolio/components/PositionsTable"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { requireUser } from "@/lib/auth/session"
 
 export default async function CarteiraPage() {
   const profile = await requireUser()
-  const { positions, totals } = await getPortfolioSummary(profile.id)
+  const { positions, totals, byCategory } = await getPortfolioSummary(profile.id)
 
   return (
     <div className="space-y-6">
@@ -19,7 +19,7 @@ export default async function CarteiraPage() {
             Acompanhe suas posições, compras, vendas e proventos.
           </p>
         </div>
-        <AddAssetButton />
+        <AddInvestmentButton />
       </div>
 
       {positions.length === 0 ? (
@@ -30,16 +30,16 @@ export default async function CarteiraPage() {
           <div className="space-y-1">
             <p className="text-lg font-medium">Sua carteira está vazia</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Adicione seu primeiro ativo — informe só a data e a quantidade, o preço é preenchido
-              automaticamente a partir do fechamento histórico.
+              Adicione seu primeiro investimento — escolha a categoria, informe a data e a
+              quantidade, o preço é preenchido automaticamente quando possível.
             </p>
           </div>
-          <AddAssetButton />
+          <AddInvestmentButton />
         </div>
       ) : (
         <>
           <PortfolioSummaryCards totals={totals} />
-          <PositionsTable positions={positions} />
+          <PortfolioBoard byCategory={byCategory} />
         </>
       )}
     </div>

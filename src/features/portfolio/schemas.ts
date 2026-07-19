@@ -31,3 +31,17 @@ export const adjustmentSchema = z.object({
   note: z.string().max(500).optional(),
 })
 export type AdjustmentInput = z.infer<typeof adjustmentSchema>
+
+// Only the categories with no market-data provider — STOCK/FII/ETF/BDR
+// always come from a sync, never a manual entry.
+export const manualCompanySchema = z.object({
+  ticker: z
+    .string()
+    .trim()
+    .min(1, "Informe um identificador.")
+    .max(20, "Máximo de 20 caracteres.")
+    .transform((value) => value.toUpperCase()),
+  name: z.string().trim().min(1, "Informe um nome.").max(200),
+  assetClass: z.enum(["CRYPTO", "FIXED_INCOME", "OTHER"]),
+})
+export type ManualCompanyInput = z.infer<typeof manualCompanySchema>

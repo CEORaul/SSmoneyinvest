@@ -6,14 +6,14 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { TradeDialog } from "@/features/portfolio/components/TradeDialog"
 
-export function AddAssetButton() {
+export function AddInvestmentButton() {
   const [open, setOpen] = useState(false)
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus className="size-4" />
-        Adicionar Ativo
+        Adicionar Investimento
       </Button>
       <TradeDialog type="BUY" open={open} onOpenChange={setOpen} />
     </>

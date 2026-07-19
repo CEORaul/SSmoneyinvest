@@ -1,4 +1,7 @@
+"use client"
+
 import { Card, CardContent } from "@/components/ui/card"
+import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import type { PortfolioTotals } from "@/features/portfolio/queries"
 import { cn } from "@/lib/utils"
 import { formatCurrencyCents, formatPercent } from "@/utils/format"
@@ -8,18 +11,24 @@ interface PortfolioSummaryCardsProps {
 }
 
 export function PortfolioSummaryCards({ totals }: PortfolioSummaryCardsProps) {
-  const cards: { label: string; value: string; tone?: "gain" | "loss" }[] = [
-    { label: "Patrimônio", value: formatCurrencyCents(totals.currentValueCents) },
+  const cards: { label: string; value: number; format: (value: number) => string; tone?: "gain" | "loss" }[] = [
+    { label: "Patrimônio", value: totals.currentValueCents, format: formatCurrencyCents },
     {
       label: "Lucro/Prejuízo",
-      value: formatCurrencyCents(totals.profitCents),
+      value: totals.profitCents,
+      format: formatCurrencyCents,
       tone: totals.profitCents >= 0 ? "gain" : "loss",
     },
-    { label: "Dividendos recebidos", value: formatCurrencyCents(totals.dividendsReceivedCents) },
-    { label: "Ativos na carteira", value: String(totals.assetCount) },
+    {
+      label: "Dividendos recebidos",
+      value: totals.dividendsReceivedCents,
+      format: formatCurrencyCents,
+    },
+    { label: "Ativos na carteira", value: totals.assetCount, format: (value) => String(Math.round(value)) },
     {
       label: "Rentabilidade",
-      value: formatPercent(totals.profitPct),
+      value: totals.profitPct,
+      format: formatPercent,
       tone: totals.profitPct >= 0 ? "gain" : "loss",
     },
   ]
@@ -30,15 +39,15 @@ export function PortfolioSummaryCards({ totals }: PortfolioSummaryCardsProps) {
         <Card key={card.label}>
           <CardContent className="space-y-1">
             <p className="text-xs text-muted-foreground">{card.label}</p>
-            <p
+            <AnimatedNumber
+              value={card.value}
+              format={card.format}
               className={cn(
-                "text-xl font-semibold tabular-nums",
+                "block text-xl font-semibold tabular-nums",
                 card.tone === "gain" && "text-gain",
                 card.tone === "loss" && "text-loss"
               )}
-            >
-              {card.value}
-            </p>
+            />
           </CardContent>
         </Card>
       ))}

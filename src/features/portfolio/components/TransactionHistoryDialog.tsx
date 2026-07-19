@@ -48,7 +48,7 @@ export function TransactionHistoryDialog({
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // The parent only ever keeps this mounted while `open` is true (see
-  // PositionsTable's `{activeCompany && (...)}` wrapper), so `transactions`
+  // PortfolioBoard's `{activeCompany && (...)}` wrapper), so `transactions`
   // is already `null` on every fresh open — no need to reset it here too.
   useEffect(() => {
     if (!open) return
