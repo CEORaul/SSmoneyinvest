@@ -36,7 +36,7 @@ import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { SORT_LABELS, sortPositions, type SortKey } from "@/features/portfolio/sort-positions"
 import type { PortfolioCategoryGroup, PortfolioPositionRow } from "@/features/portfolio/queries"
 import { cn } from "@/lib/utils"
-import { formatCurrencyCents, formatPercent } from "@/utils/format"
+import { formatCurrencyCents, formatPercent, formatRelativeTime } from "@/utils/format"
 
 export type PositionActionType = "buy" | "sell" | "income" | "adjustment" | "history"
 
@@ -44,15 +44,6 @@ interface CategorySectionProps {
   group: PortfolioCategoryGroup
   onAction: (type: PositionActionType, position: PortfolioPositionRow) => void
   onRemove: (position: PortfolioPositionRow) => void
-}
-
-function relativeTime(date: Date): string {
-  const minutes = Math.round((Date.now() - date.getTime()) / 60_000)
-  if (minutes < 1) return "agora"
-  if (minutes < 60) return `há ${minutes} min`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `há ${hours}h`
-  return `há ${Math.round(hours / 24)}d`
 }
 
 /// One collapsible card per AssetClass — the same shape regardless of
@@ -221,7 +212,7 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
                         {formatPercent(position.allocationPct)}
                       </TableCell>
                       <TableCell className="text-right text-xs text-muted-foreground">
-                        {relativeTime(position.lastUpdatedAt)}
+                        {formatRelativeTime(position.lastUpdatedAt)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

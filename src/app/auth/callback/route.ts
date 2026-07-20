@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
   const rawNext = searchParams.get("next")
-  const next = rawNext && rawNext.startsWith("/") ? rawNext : "/perfil"
+  const next = rawNext && rawNext.startsWith("/") ? rawNext : "/"
 
   if (code) {
     const supabase = await createClient()

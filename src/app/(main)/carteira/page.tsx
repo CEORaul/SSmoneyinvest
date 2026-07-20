@@ -3,12 +3,17 @@ import { PackageOpen } from "lucide-react"
 import { AddInvestmentButton } from "@/features/portfolio/components/AddInvestmentButton"
 import { PortfolioBoard } from "@/features/portfolio/components/PortfolioBoard"
 import { PortfolioSummaryCards } from "@/features/portfolio/components/PortfolioSummaryCards"
+import { PriceSyncStatus } from "@/features/portfolio/components/PriceSyncStatus"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
+import { getLastDirectorySyncStatus } from "@/features/market-sync/sync-status"
 import { requireUser } from "@/lib/auth/session"
 
 export default async function CarteiraPage() {
   const profile = await requireUser()
-  const { positions, totals, byCategory } = await getPortfolioSummary(profile.id)
+  const [{ positions, totals, byCategory }, { lastSyncedAt }] = await Promise.all([
+    getPortfolioSummary(profile.id),
+    getLastDirectorySyncStatus(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -18,6 +23,9 @@ export default async function CarteiraPage() {
           <p className="text-muted-foreground">
             Acompanhe suas posições, compras, vendas e proventos.
           </p>
+          <div className="mt-1">
+            <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
+          </div>
         </div>
         <AddInvestmentButton />
       </div>

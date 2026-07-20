@@ -5,15 +5,12 @@ import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
+/// Direct two-way toggle — no dropdown, no "system" step in the click
+/// interaction. setTheme() persists to localStorage via next-themes, so the
+/// choice survives a page reload without any extra wiring.
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   // Avoids a hydration mismatch: the server always renders the same icon,
   // the real theme is only knowable after mount (next-themes reads it from
   // localStorage/matchMedia client-side).
@@ -25,25 +22,18 @@ export function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  const isDark = mounted && theme === "dark"
+  // resolvedTheme (not theme) reflects what's actually on screen even when
+  // the stored preference is "system" — the icon always matches reality.
+  const isDark = mounted && resolvedTheme === "dark"
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon" aria-label="Alternar tema" />}
-      >
-        {isDark ? <Moon className="size-4.5" /> : <Sun className="size-4.5" />}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          <Sun className="size-4" />
-          ☀ Claro
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          <Moon className="size-4" />
-          🌙 Escuro
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Alternar tema"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+    >
+      {isDark ? <Moon className="size-4.5" /> : <Sun className="size-4.5" />}
+    </Button>
   )
 }

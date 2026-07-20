@@ -76,7 +76,7 @@ export async function signIn(input: LoginInput, next?: string): Promise<ActionRe
 
   // `next` comes from a query param an attacker could set — only ever
   // follow it if it's a same-site relative path, never an absolute URL.
-  redirect(next && next.startsWith("/") ? next : "/perfil")
+  redirect(next && next.startsWith("/") ? next : "/")
 }
 
 export async function signOut(): Promise<void> {

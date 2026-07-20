@@ -37,6 +37,10 @@ export function SyncPanel() {
       toast.error(result.error ?? "Não foi possível concluir a sincronização")
       return
     }
+    if (result.skipped) {
+      toast.info(`${JOB_LABELS[job]}: já sincronizado há pouco, nada a fazer`)
+      return
+    }
     toast.success(
       `${JOB_LABELS[job]}: ${result.processed} processada(s), ${result.failed} falha(s)`
     )
@@ -91,7 +95,9 @@ export function SyncPanel() {
               {result.ok ? (
                 <>
                   <p className="text-muted-foreground">
-                    {result.processed} processada(s), {result.failed} falha(s)
+                    {result.skipped
+                      ? "Já sincronizado há pouco — nada a fazer."
+                      : `${result.processed} processada(s), ${result.failed} falha(s)`}
                   </p>
                   {result.errors && result.errors.length > 0 && (
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-destructive">
