@@ -23,7 +23,12 @@ export function FundamentalIndicatorCard({ companyId, indicator, dto }: Fundamen
     <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3.5 ring-1 ring-foreground/5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">{indicator.label}</span>
-        <AiIndicatorPopover companyId={companyId} indicatorKey={indicator.key} indicatorLabel={indicator.label} />
+        <AiIndicatorPopover
+          companyId={companyId}
+          indicatorKey={indicator.key}
+          indicatorLabel={indicator.label}
+          hasValue={value != null}
+        />
       </div>
       {value != null ? (
         <span className="text-lg font-semibold tabular-nums">

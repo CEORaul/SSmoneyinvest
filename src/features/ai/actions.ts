@@ -58,15 +58,20 @@ export async function requestIndicatorExplanationAction(
     }
   }
 
-  const sectorAverage =
-    dto.sector && SECTOR_COMPARABLE_FIELDS.has(indicatorKey)
-      ? await getSectorIndicatorAverage(
-          dto.sector,
-          dto.assetClass,
-          indicatorKey as Parameters<typeof getSectorIndicatorAverage>[2],
-          dto.id
-        )
-      : null
+  let sectorAverage: Awaited<ReturnType<typeof getSectorIndicatorAverage>> = null
+  try {
+    sectorAverage =
+      dto.sector && SECTOR_COMPARABLE_FIELDS.has(indicatorKey)
+        ? await getSectorIndicatorAverage(
+            dto.sector,
+            dto.assetClass,
+            indicatorKey as Parameters<typeof getSectorIndicatorAverage>[2],
+            dto.id
+          )
+        : null
+  } catch (error) {
+    console.error("[requestIndicatorExplanationAction] sector average failed", indicatorKey, error)
+  }
 
   const result = await aiContentService.getOrGenerateIndicatorExplanation(
     dto,
