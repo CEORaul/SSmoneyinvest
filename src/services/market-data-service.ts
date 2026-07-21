@@ -223,6 +223,10 @@ export const marketDataService = {
       }
     }
 
+    // description/sector live on Company, not Stock — split them out of the
+    // modules-derived block before it goes anywhere near tx.stock.upsert.
+    const { description, sector, ...stockFundamentals } = details!.stock ?? {}
+
     try {
       await prisma.$transaction(async (tx) => {
         await tx.company.update({
@@ -232,6 +236,17 @@ export const marketDataService = {
             ...(details!.priceChangePct != null
               ? { priceChangePct: details!.priceChangePct }
               : {}),
+            ...(details!.dayHighCents != null ? { dayHighCents: details!.dayHighCents } : {}),
+            ...(details!.dayLowCents != null ? { dayLowCents: details!.dayLowCents } : {}),
+            ...(details!.fiftyTwoWeekHighCents != null
+              ? { fiftyTwoWeekHighCents: details!.fiftyTwoWeekHighCents }
+              : {}),
+            ...(details!.fiftyTwoWeekLowCents != null
+              ? { fiftyTwoWeekLowCents: details!.fiftyTwoWeekLowCents }
+              : {}),
+            ...(details!.volume != null ? { volume: details!.volume } : {}),
+            ...(description != null ? { description } : {}),
+            ...(sector != null ? { sector } : {}),
             detailsSyncedAt: new Date(),
             lastQuoteProvider: details!.source,
             lastQuoteAt: new Date(),
@@ -241,12 +256,24 @@ export const marketDataService = {
           },
         })
 
-        if (company.assetClass === "STOCK" && details!.priceToEarnings != null) {
-          await tx.stock.upsert({
-            where: { companyId: company.id },
-            update: { priceToEarnings: details!.priceToEarnings },
-            create: { companyId: company.id, priceToEarnings: details!.priceToEarnings },
-          })
+        // BDRs get the same Stock-shaped fundamentals row as ordinary
+        // stocks — there was previously no Stock row for BDRs at all,
+        // silently leaving every indicator card empty for that whole
+        // category regardless of what the provider actually returned.
+        if (company.assetClass === "STOCK" || company.assetClass === "BDR") {
+          const stockFields = Object.fromEntries(
+            Object.entries({
+              priceToEarnings: details!.priceToEarnings,
+              ...stockFundamentals,
+            }).filter(([, value]) => value != null)
+          )
+          if (Object.keys(stockFields).length > 0) {
+            await tx.stock.upsert({
+              where: { companyId: company.id },
+              update: stockFields,
+              create: { companyId: company.id, ...stockFields },
+            })
+          }
         }
 
         if (details!.priceHistory.length > 0) {
@@ -255,6 +282,7 @@ export const marketDataService = {
               companyId: company.id,
               date: point.date,
               closeCents: point.closeCents,
+              volume: point.volume,
             })),
             skipDuplicates: true,
           })

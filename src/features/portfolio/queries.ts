@@ -3,6 +3,7 @@ import "server-only"
 import type { AssetClass, PriceSource } from "@/generated/prisma/client"
 import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
 import { ASSET_CATEGORIES, getAssetCategoryMeta } from "@/features/portfolio/asset-category"
+import { computePositionMetrics } from "@/features/portfolio/position-metrics"
 import { prisma } from "@/lib/prisma"
 
 export interface PortfolioPositionRow {
@@ -132,14 +133,14 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
     }))
   )
 
-  const computed = positions.map((position) => {
-    const currentValueCents = position.quantity.mul(position.company.priceCents).round().toNumber()
-    const investedCents = Number(position.totalInvestedCents)
-    const profitCents = currentValueCents - investedCents
-    const profitPct = investedCents > 0 ? (profitCents / investedCents) * 100 : 0
-
-    return { position, currentValueCents, investedCents, profitCents, profitPct }
-  })
+  const computed = positions.map((position) => ({
+    position,
+    ...computePositionMetrics({
+      quantity: position.quantity,
+      priceCents: position.company.priceCents,
+      totalInvestedCents: position.totalInvestedCents,
+    }),
+  }))
 
   const totalCurrentValueCents = computed.reduce((sum, row) => sum + row.currentValueCents, 0)
 

@@ -1,0 +1,205 @@
+import "server-only"
+
+import { createHash } from "crypto"
+
+import type { AiQuestionType } from "@/generated/prisma/client"
+import { AI_MODEL, generateText } from "@/lib/ai/anthropic-client"
+import { getIndicatorsForAssetClass } from "@/features/company/indicators"
+import type { CompanyDetailDTO } from "@/features/company/queries"
+import { prisma } from "@/lib/prisma"
+
+const CACHE_TTL_DAYS = 30
+
+/// "O que é?"/"Como calcular?" answers don't depend on this specific
+/// company's numbers — they're cached once per (assetClass, indicatorKey)
+/// and shared by every company, cutting real API cost. The other three
+/// question types reference the actual value/sector comparison and always
+/// get their own per-company row.
+const GENERIC_QUESTION_TYPES: AiQuestionType[] = ["WHAT_IS", "HOW_CALCULATE"]
+
+const SYSTEM_PERSONA =
+  "Você é um educador financeiro neutro e didático, especializado no mercado brasileiro. " +
+  "Responda em português do Brasil, em 2 a 4 frases. Nunca inclua recomendação de compra ou " +
+  "venda. Baseie-se apenas nos dados fornecidos nesta mensagem — nunca mencione, estime ou " +
+  "invente nenhum dado que não foi fornecido explicitamente."
+
+function hashInputs(parts: Array<string | number | null | undefined>): string {
+  return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 32)
+}
+
+function expiresAt(): Date {
+  return new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000)
+}
+
+function isFresh(row: { sourceHash: string; expiresAt: Date | null }, sourceHash: string): boolean {
+  if (row.sourceHash !== sourceHash) return false
+  if (row.expiresAt && row.expiresAt.getTime() < Date.now()) return false
+  return true
+}
+
+/// "The only code allowed to call the AI provider" — mirrors
+/// MarketDataService's exclusivity over BRAPI/Yahoo. Every entry point here
+/// catches its own failures and returns null; nothing ever propagates an
+/// error up into a page render, and nothing ever fabricates a substitute
+/// for real AI output.
+export const aiContentService = {
+  async getOrGenerateCompanySummary(
+    dto: CompanyDetailDTO
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      const sourceHash = hashInputs([
+        dto.priceCents,
+        dto.priceChangePct,
+        dto.sector,
+        dto.stock?.roe,
+        dto.stock?.netMargin,
+        dto.stock?.priceToEarnings,
+        dto.stock?.dividendYield ?? dto.fii?.dividendYield ?? dto.etf?.dividendYield,
+      ])
+
+      const cacheWhere = {
+        companyId: dto.id,
+        kind: "SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const knownFacts = buildKnownFactsList(dto)
+      if (knownFacts.length === 0) return null
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          `Escreva um "Resumo Inteligente" de 2 a 3 frases sobre ${dto.name} (${dto.ticker}), ` +
+          `com base apenas nestes dados:\n${knownFacts.join("\n")}`,
+        maxTokens: 300,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  async getOrGenerateIndicatorExplanation(
+    dto: CompanyDetailDTO,
+    indicatorKey: string,
+    questionType: AiQuestionType,
+    sectorAverage: { average: number; sampleSize: number } | null
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      const definition = getIndicatorsForAssetClass(dto.assetClass).find((i) => i.key === indicatorKey)
+      if (!definition) return null
+
+      const isGeneric = GENERIC_QUESTION_TYPES.includes(questionType)
+      const value = definition.getValue(dto)
+
+      const sourceHash = isGeneric
+        ? hashInputs([dto.assetClass, indicatorKey, questionType])
+        : hashInputs([dto.assetClass, indicatorKey, questionType, value, sectorAverage?.average])
+
+      const cacheKey = {
+        companyId: isGeneric ? null : dto.id,
+        kind: "INDICATOR_EXPLANATION" as const,
+        assetClass: isGeneric ? dto.assetClass : null,
+        indicatorKey,
+        questionType,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheKey })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const prompt = buildIndicatorPrompt({
+        definition,
+        questionType,
+        value,
+        ticker: dto.ticker,
+        sector: dto.sector,
+        sectorAverage,
+      })
+      if (!prompt) return null
+
+      const text = await generateText({ system: SYSTEM_PERSONA, prompt, maxTokens: 300 })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheKey, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+}
+
+function buildKnownFactsList(dto: CompanyDetailDTO): string[] {
+  const facts: string[] = []
+  if (dto.sector) facts.push(`Setor: ${dto.sector}`)
+  if (dto.segment) facts.push(`Segmento: ${dto.segment}`)
+  facts.push(`Preço atual: R$ ${(dto.priceCents / 100).toFixed(2)}`)
+  facts.push(`Variação: ${dto.priceChangePct.toFixed(2)}%`)
+  if (dto.marketCapCents != null) facts.push(`Market cap: R$ ${(Number(dto.marketCapCents) / 100).toLocaleString("pt-BR")}`)
+  if (dto.stock?.priceToEarnings != null) facts.push(`P/L: ${dto.stock.priceToEarnings.toFixed(2)}`)
+  if (dto.stock?.roe != null) facts.push(`ROE: ${dto.stock.roe.toFixed(2)}%`)
+  if (dto.stock?.netMargin != null) facts.push(`Margem líquida: ${dto.stock.netMargin.toFixed(2)}%`)
+  if (dto.stock?.dividendYield != null) facts.push(`Dividend Yield: ${dto.stock.dividendYield.toFixed(2)}%`)
+  if (dto.stock?.netDebtToEbitda != null) facts.push(`Dívida líquida/EBITDA: ${dto.stock.netDebtToEbitda.toFixed(2)}x`)
+  if (dto.fii?.dividendYield != null) facts.push(`Dividend Yield: ${dto.fii.dividendYield.toFixed(2)}%`)
+  if (dto.fii?.vacancyRate != null) facts.push(`Vacância: ${dto.fii.vacancyRate.toFixed(2)}%`)
+  return facts
+}
+
+function buildIndicatorPrompt(input: {
+  definition: { label: string; unit: string }
+  questionType: AiQuestionType
+  value: number | null
+  ticker: string
+  sector: string | null
+  sectorAverage: { average: number; sampleSize: number } | null
+}): string | null {
+  const { definition, questionType, value, ticker, sector, sectorAverage } = input
+
+  switch (questionType) {
+    case "WHAT_IS":
+      return `Explique de forma simples o que é o indicador "${definition.label}" no contexto de investimentos.`
+    case "HOW_CALCULATE":
+      return `Explique de forma simples como o indicador "${definition.label}" é calculado.`
+    case "HOW_INTERPRET":
+      if (value == null) return null
+      return `O indicador "${definition.label}" de ${ticker} é ${value.toFixed(2)}. Explique como interpretar esse valor.`
+    case "IS_HIGH":
+      if (value == null) return null
+      return sectorAverage
+        ? `O indicador "${definition.label}" de ${ticker} é ${value.toFixed(2)}, e a média do setor "${sector}" (${sectorAverage.sampleSize} empresas) é ${sectorAverage.average.toFixed(2)}. Esse valor está alto, baixo ou dentro da média?`
+        : `O indicador "${definition.label}" de ${ticker} é ${value.toFixed(2)}. Não há dado de comparação setorial disponível na base — diga isso claramente antes de comentar o valor isoladamente, sem estimar uma média.`
+    case "COMPARE_SECTOR":
+      if (value == null) return null
+      return sectorAverage
+        ? `Compare o indicador "${definition.label}" de ${ticker} (${value.toFixed(2)}) com a média do setor "${sector}" (${sectorAverage.average.toFixed(2)}, calculada sobre ${sectorAverage.sampleSize} empresas).`
+        : `Não há dado de comparação setorial de "${definition.label}" disponível na base para o setor "${sector}". Diga isso claramente em vez de estimar uma média.`
+    default:
+      return null
+  }
+}

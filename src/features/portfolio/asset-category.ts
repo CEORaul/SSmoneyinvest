@@ -26,16 +26,22 @@ export interface AssetCategoryMeta {
   /// never do (false). Synced companies (STOCK/FII/ETF/BDR) are always
   /// exchange-listed by construction and don't consult this default.
   listedOnExchangeDefault: boolean
+  /// Whether the /empresa/[ticker] page's fundamentals section (indicator
+  /// grid, health score, Resultados, Balanço) applies to this category at
+  /// all. True only for STOCK/BDR — FIIs/ETFs get their own smaller field
+  /// set (see Fii/Etf models), and CRYPTO/FIXED_INCOME/OTHER are manual-
+  /// entry-only with no fundamentals concept to show.
+  hasFundamentals: boolean
 }
 
 export const ASSET_CATEGORIES: readonly AssetCategoryMeta[] = [
-  { value: "STOCK", label: "Ações", emoji: "📈", order: 1, hasMarketData: true, listedOnExchangeDefault: true },
-  { value: "FII", label: "FIIs", emoji: "🏢", order: 2, hasMarketData: true, listedOnExchangeDefault: true },
-  { value: "ETF", label: "ETFs", emoji: "📊", order: 3, hasMarketData: true, listedOnExchangeDefault: true },
-  { value: "BDR", label: "BDRs", emoji: "🌎", order: 4, hasMarketData: true, listedOnExchangeDefault: true },
-  { value: "CRYPTO", label: "Criptomoedas", emoji: "🪙", order: 5, hasMarketData: false, listedOnExchangeDefault: true },
-  { value: "FIXED_INCOME", label: "Renda Fixa", emoji: "💵", order: 6, hasMarketData: false, listedOnExchangeDefault: false },
-  { value: "OTHER", label: "Outros Investimentos", emoji: "⭐", order: 7, hasMarketData: false, listedOnExchangeDefault: false },
+  { value: "STOCK", label: "Ações", emoji: "📈", order: 1, hasMarketData: true, listedOnExchangeDefault: true, hasFundamentals: true },
+  { value: "FII", label: "FIIs", emoji: "🏢", order: 2, hasMarketData: true, listedOnExchangeDefault: true, hasFundamentals: false },
+  { value: "ETF", label: "ETFs", emoji: "📊", order: 3, hasMarketData: true, listedOnExchangeDefault: true, hasFundamentals: false },
+  { value: "BDR", label: "BDRs", emoji: "🌎", order: 4, hasMarketData: true, listedOnExchangeDefault: true, hasFundamentals: true },
+  { value: "CRYPTO", label: "Criptomoedas", emoji: "🪙", order: 5, hasMarketData: false, listedOnExchangeDefault: true, hasFundamentals: false },
+  { value: "FIXED_INCOME", label: "Renda Fixa", emoji: "💵", order: 6, hasMarketData: false, listedOnExchangeDefault: false, hasFundamentals: false },
+  { value: "OTHER", label: "Outros Investimentos", emoji: "⭐", order: 7, hasMarketData: false, listedOnExchangeDefault: false, hasFundamentals: false },
 ]
 
 const BY_VALUE = new Map(ASSET_CATEGORIES.map((category) => [category.value, category]))

@@ -15,9 +15,23 @@ const compactNumberFormatter = new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 1,
 })
 
+const compactCurrencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
 export function formatCurrencyCents(cents: number | bigint): string {
   const value = Number(cents) / 100
   return currencyFormatter.format(value)
+}
+
+/// Market cap, patrimônio líquido, receita etc. — large currency figures
+/// where "R$ 558,2 bi" reads better than the full expanded amount.
+export function formatCurrencyCentsCompact(cents: number | bigint): string {
+  const value = Number(cents) / 100
+  return compactCurrencyFormatter.format(value)
 }
 
 export function formatPercent(value: number | string): string {

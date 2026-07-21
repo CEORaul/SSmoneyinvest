@@ -150,6 +150,9 @@ export async function recordTradeAction(input: TradeInput): Promise<ActionResult
   }
 
   revalidatePath("/carteira")
+  // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
+  // there must reflect immediately on the same page, not just on /carteira.
+  revalidatePath("/empresa/[ticker]", "page")
   return { ok: true }
 }
 
@@ -167,6 +170,9 @@ export async function recordIncomeAction(input: IncomeInput): Promise<ActionResu
   }
 
   revalidatePath("/carteira")
+  // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
+  // there must reflect immediately on the same page, not just on /carteira.
+  revalidatePath("/empresa/[ticker]", "page")
   return { ok: true }
 }
 
@@ -184,6 +190,9 @@ export async function recordAdjustmentAction(input: AdjustmentInput): Promise<Ac
   }
 
   revalidatePath("/carteira")
+  // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
+  // there must reflect immediately on the same page, not just on /carteira.
+  revalidatePath("/empresa/[ticker]", "page")
   return { ok: true }
 }
 
@@ -196,6 +205,9 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
   }
 
   revalidatePath("/carteira")
+  // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
+  // there must reflect immediately on the same page, not just on /carteira.
+  revalidatePath("/empresa/[ticker]", "page")
   return { ok: true }
 }
 
@@ -208,5 +220,8 @@ export async function removePositionAction(companyId: string): Promise<ActionRes
   }
 
   revalidatePath("/carteira")
+  // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
+  // there must reflect immediately on the same page, not just on /carteira.
+  revalidatePath("/empresa/[ticker]", "page")
   return { ok: true }
 }

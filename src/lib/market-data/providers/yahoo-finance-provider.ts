@@ -23,12 +23,18 @@ interface YahooDividendEvent {
 
 interface YahooQuote {
   close: (number | null)[]
+  volume: (number | null)[]
 }
 
 interface YahooChartResult {
   meta: {
     symbol: string
     regularMarketPrice?: number
+    regularMarketDayHigh?: number
+    regularMarketDayLow?: number
+    regularMarketVolume?: number
+    fiftyTwoWeekHigh?: number
+    fiftyTwoWeekLow?: number
     chartPreviousClose?: number
     longName?: string
     shortName?: string
@@ -48,12 +54,18 @@ interface YahooChartResponse {
 function mapPriceHistory(result: YahooChartResult): PricePoint[] {
   const timestamps = result.timestamp ?? []
   const closes = result.indicators.quote[0]?.close ?? []
+  const volumes = result.indicators.quote[0]?.volume ?? []
 
   const points: PricePoint[] = []
   for (let i = 0; i < timestamps.length; i++) {
     const close = closes[i]
     if (close == null) continue
-    points.push({ date: new Date(timestamps[i] * 1000), closeCents: Math.round(close * 100) })
+    const volume = volumes[i]
+    points.push({
+      date: new Date(timestamps[i] * 1000),
+      closeCents: Math.round(close * 100),
+      volume: volume != null ? BigInt(Math.round(volume)) : null,
+    })
   }
   return points
 }
@@ -124,8 +136,16 @@ export class YahooFinanceProvider implements MarketDataProvider {
       priceChangePct,
       // Not available from this endpoint — left null rather than guessed.
       priceToEarnings: null,
+      dayHighCents: result.meta.regularMarketDayHigh != null ? Math.round(result.meta.regularMarketDayHigh * 100) : null,
+      dayLowCents: result.meta.regularMarketDayLow != null ? Math.round(result.meta.regularMarketDayLow * 100) : null,
+      fiftyTwoWeekHighCents: result.meta.fiftyTwoWeekHigh != null ? Math.round(result.meta.fiftyTwoWeekHigh * 100) : null,
+      fiftyTwoWeekLowCents: result.meta.fiftyTwoWeekLow != null ? Math.round(result.meta.fiftyTwoWeekLow * 100) : null,
+      volume: result.meta.regularMarketVolume != null ? BigInt(Math.round(result.meta.regularMarketVolume)) : null,
       priceHistory: mapPriceHistory(result),
       dividends: mapDividends(result),
+      // Yahoo's unofficial chart endpoint has no fundamentals/statistics
+      // modules at all — always null here, never guessed.
+      stock: null,
       source: this.name,
     }
   }

@@ -139,6 +139,13 @@ model Company {
   priceCents        Int        @default(0)
   priceChangePct    Decimal    @default(0) @db.Decimal(8, 4)
   marketCapCents    BigInt?
+  /// Day/52-week range and volume — available for every ticker via BRAPI's
+  /// basic quote payload (no premium modules needed), just not mapped yet.
+  dayHighCents          Int?
+  dayLowCents           Int?
+  fiftyTwoWeekHighCents Int?
+  fiftyTwoWeekLowCents  Int?
+  volume                BigInt?
   listedAt          DateTime?
   /// Last time dividends/history/fundamentals were pulled from the provider
   /// (the token-gated "detail" call) — distinct from `updatedAt`, which also
@@ -182,6 +189,7 @@ model Company {
   portfolioEntries       PortfolioPosition[]
   transactions           Transaction[]
   quoteValidationAlerts  QuoteValidationAlert[]
+  aiContent              AiContent[]
 
   @@index([assetClass])
   @@index([sector])
@@ -208,7 +216,15 @@ model QuoteValidationAlert {
   @@map("quote_validation_alerts")
 }
 
-/// Stock-specific fundamentals (indicadores fundamentalistas).
+/// Stock-specific fundamentals (indicadores fundamentalistas). The block
+/// added below (psr..sharesOutstanding) is only ever populated by BRAPI's
+/// premium `defaultKeyStatistics`/`financialData` modules — on the current
+/// plan tier that's just the 4 sandbox tickers (PETR4/VALE3/ITUB4/MGLU3),
+/// so these stay null for the rest of the universe until a plan upgrade.
+/// Deliberately NOT modeled here: Tag Along, Fluxo de Caixa — no real data
+/// source exists for either at any BRAPI/Yahoo plan tier; see
+/// src/features/company/indicators.ts's "never-available" entries instead
+/// of adding a column that could only ever be guessed at.
 model Stock {
   id                String   @id @default(uuid())
   companyId         String   @unique
@@ -221,6 +237,25 @@ model Stock {
   netMargin         Decimal? @db.Decimal(8, 4)
   netDebtCents      BigInt?
   equityCents       BigInt?
+  psr                Decimal? @db.Decimal(8, 4)
+  evToEbit           Decimal? @db.Decimal(8, 4)
+  evToEbitda         Decimal? @db.Decimal(8, 4)
+  roa                Decimal? @db.Decimal(8, 4)
+  grossMargin        Decimal? @db.Decimal(8, 4)
+  ebitdaMargin       Decimal? @db.Decimal(8, 4)
+  payout             Decimal? @db.Decimal(8, 4)
+  currentLiquidity   Decimal? @db.Decimal(8, 4)
+  revenueCents       BigInt?
+  netIncomeCents     BigInt?
+  ebitdaCents        BigInt?
+  grossDebtCents     BigInt?
+  netDebtToEbitda    Decimal? @db.Decimal(8, 4)
+  revenueCagr3y      Decimal? @db.Decimal(8, 4)
+  netIncomeCagr3y    Decimal? @db.Decimal(8, 4)
+  freeFloatPct       Decimal? @db.Decimal(8, 4)
+  beta               Decimal? @db.Decimal(8, 4)
+  bookValuePerShareCents Int?
+  sharesOutstanding  BigInt?
   updatedAt         DateTime @updatedAt
 
   @@map("stocks")
@@ -265,6 +300,7 @@ model PriceHistoryPoint {
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   date       DateTime
   closeCents Int
+  volume     BigInt?
   createdAt  DateTime @default(now())
 
   @@unique([companyId, date])
@@ -354,6 +390,63 @@ model ProviderHealth {
   updatedAt          DateTime       @updatedAt
 
   @@map("provider_health")
+}
+
+// ─────────────────────────────────────────────────────────
+// AI-generated content (Resumo Inteligente, indicator explanations)
+// ─────────────────────────────────────────────────────────
+
+enum AiContentKind {
+  SUMMARY
+  INDICATOR_EXPLANATION
+}
+
+enum AiQuestionType {
+  WHAT_IS
+  HOW_INTERPRET
+  IS_HIGH
+  COMPARE_SECTOR
+  HOW_CALCULATE
+}
+
+/// Cache/persistence for every AI-generated string this app ever shows —
+/// src/services/ai-content-service.ts is the only code allowed to write
+/// here (mirrors MarketDataService's exclusivity over provider calls).
+/// `companyId: null` rows are generic answers shared across every company
+/// of the same `assetClass` (only WHAT_IS/HOW_CALCULATE ever do this — the
+/// other question types reference a specific value/sector comparison and
+/// always need their own row). `sourceHash` is a hash of exactly the inputs
+/// the prompt used; a mismatch means the underlying data moved on and the
+/// cached text should be regenerated rather than trusted as still accurate.
+/// The `@@unique` below is documentation, not an enforced guarantee —
+/// Postgres treats every NULL as distinct in a unique index, so it can't
+/// actually prevent duplicate generic (companyId: null) rows;
+/// ai-content-service.ts reads/writes via findFirst + create-or-update
+/// rather than upsert-by-key for exactly this reason. A rare duplicate is a
+/// harmless idle cache row, not a correctness issue.
+model AiContent {
+  id           String          @id @default(uuid())
+  companyId    String?
+  company      Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kind         AiContentKind
+  /// Only set on the generic (companyId: null) rows — scopes them to a
+  /// category so a FII's "o que é P/VP" answer never leaks into a stock's.
+  assetClass   AssetClass?
+  indicatorKey String?
+  questionType AiQuestionType?
+  content      String          @db.Text
+  /// Model id that produced this text — provenance, not a behavior switch.
+  model        String
+  sourceHash   String
+  generatedAt  DateTime        @default(now())
+  /// TTL fallback (30 days) for content whose sourceHash never changes —
+  /// sourceHash mismatch is the primary invalidation path, this just caps
+  /// how stale a genuinely-unchanged answer is allowed to get.
+  expiresAt    DateTime?
+
+  @@unique([companyId, kind, assetClass, indicatorKey, questionType])
+  @@index([companyId, kind])
+  @@map("ai_content")
 }
 
 // ─────────────────────────────────────────────────────────
