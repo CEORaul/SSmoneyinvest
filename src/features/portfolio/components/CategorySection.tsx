@@ -211,7 +211,14 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
                       <TableCell className="text-right tabular-nums">
                         {formatPercent(position.allocationPct)}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
+                      {/* "há Xs" necessarily reads differently between the
+                          server render and client hydration a moment later
+                          — suppressHydrationWarning is React's documented
+                          escape hatch for exactly this class of value. */}
+                      <TableCell
+                        className="text-right text-xs text-muted-foreground"
+                        suppressHydrationWarning
+                      >
                         {formatRelativeTime(position.lastUpdatedAt)}
                       </TableCell>
                       <TableCell>

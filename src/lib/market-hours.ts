@@ -1,6 +1,9 @@
 const MARKET_TIMEZONE = "America/Sao_Paulo"
-const MARKET_OPEN_HOUR = 10
-const MARKET_CLOSE_HOUR = 18
+
+// Exported so the exact session window is a one-place change, same spirit
+// as REFRESH_INTERVAL_MS in features/portfolio/sync-config.ts.
+export const MARKET_OPEN_HOUR = 10
+export const MARKET_CLOSE_HOUR = 18
 
 /// Whether the B3 (Brazilian stock exchange) regular session is open —
 /// Mon-Fri, 10:00-18:00 America/Sao_Paulo (covers the regular session plus

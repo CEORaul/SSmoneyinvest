@@ -43,3 +43,14 @@ export function formatRelativeTime(date: Date): string {
   if (hours < 24) return `há ${hours}h`
   return `há ${Math.round(hours / 24)}d`
 }
+
+const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+})
+
+export function formatAbsoluteTime(date: Date): string {
+  return timeFormatter.format(date)
+}

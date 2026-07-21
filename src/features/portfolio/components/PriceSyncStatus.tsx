@@ -5,19 +5,18 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
 import { runCompanyDirectorySyncAction } from "@/features/admin/actions"
+import { ENABLE_BACKGROUND_REFRESH, REFRESH_INTERVAL_MS } from "@/features/portfolio/sync-config"
 import { isBrazilMarketOpen } from "@/lib/market-hours"
 import { cn } from "@/lib/utils"
-import { formatRelativeTime } from "@/utils/format"
+import { formatAbsoluteTime, formatRelativeTime } from "@/utils/format"
 
 interface PriceSyncStatusProps {
   lastSyncedAt: Date | null
+  /** Cryptomoedas negociam 24h — a carteira que tiver uma continua
+   * atualizando fora do horário de pregão da B3, em vez de parar. */
+  hasCrypto: boolean
 }
 
-// During the B3 session, prices are worth refreshing about once a minute;
-// outside it nothing is trading, so the last known close is already
-// correct and re-fetching would just be a wasted call.
-const STALE_THRESHOLD_MS = 60_000
-const POLL_INTERVAL_MS = 60_000
 const LABEL_TICK_MS = 5_000
 
 /// Small status line + background refresh for /carteira — reuses the exact
@@ -25,8 +24,9 @@ const LABEL_TICK_MS = 5_000
 /// button calls, so there is still only one implementation of the sync
 /// trigger. Shows the last-known prices immediately (the page's own server
 /// render already has them) and swaps in fresh ones via router.refresh()
-/// once a sync completes, instead of a full page reload.
-export function PriceSyncStatus({ lastSyncedAt }: PriceSyncStatusProps) {
+/// once a sync completes, instead of a full page reload. Cadence and the
+/// on/off switch live in features/portfolio/sync-config.ts.
+export function PriceSyncStatus({ lastSyncedAt, hasCrypto }: PriceSyncStatusProps) {
   const router = useRouter()
   const [syncedAt, setSyncedAt] = useState(lastSyncedAt)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -34,12 +34,20 @@ export function PriceSyncStatus({ lastSyncedAt }: PriceSyncStatusProps) {
   const isSyncingRef = useRef(false)
 
   useEffect(() => {
+    if (!ENABLE_BACKGROUND_REFRESH) return
+
+    // Crypto trades around the clock, so a portfolio holding any keeps
+    // refreshing 24/7; a stocks/FIIs-only portfolio only bothers during
+    // the B3 session — outside it the last close is already correct.
+    function shouldConsiderRefresh() {
+      return hasCrypto || isBrazilMarketOpen()
+    }
+
     async function maybeSync() {
-      if (isSyncingRef.current) return
+      if (isSyncingRef.current || !shouldConsiderRefresh()) return
 
       const neverSynced = syncedAt === null
-      const marketOpen = isBrazilMarketOpen()
-      const stale = neverSynced || (marketOpen && Date.now() - syncedAt!.getTime() > STALE_THRESHOLD_MS)
+      const stale = neverSynced || Date.now() - syncedAt!.getTime() > REFRESH_INTERVAL_MS
       if (!stale) return
 
       isSyncingRef.current = true
@@ -55,17 +63,15 @@ export function PriceSyncStatus({ lastSyncedAt }: PriceSyncStatusProps) {
     }
 
     maybeSync()
-    const pollId = setInterval(() => {
-      if (isBrazilMarketOpen()) maybeSync()
-    }, POLL_INTERVAL_MS)
+    const pollId = setInterval(maybeSync, REFRESH_INTERVAL_MS)
     const labelTickId = setInterval(() => forceTick((n) => n + 1), LABEL_TICK_MS)
 
     return () => {
       clearInterval(pollId)
       clearInterval(labelTickId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-run when syncedAt changes; router/maybeSync are stable enough for this polling loop
-  }, [syncedAt])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-run when syncedAt/hasCrypto change; router/maybeSync are stable enough for this polling loop
+  }, [syncedAt, hasCrypto])
 
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -73,7 +79,9 @@ export function PriceSyncStatus({ lastSyncedAt }: PriceSyncStatusProps) {
       {isSyncing ? (
         <span>Atualizando preços...</span>
       ) : syncedAt ? (
-        <span>Atualizado {formatRelativeTime(syncedAt)}</span>
+        <span title={`Última atualização: ${formatAbsoluteTime(syncedAt)}`}>
+          Atualizado {formatRelativeTime(syncedAt)}
+        </span>
       ) : (
         <span>Aguardando primeira sincronização</span>
       )}
