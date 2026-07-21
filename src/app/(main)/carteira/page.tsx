@@ -14,7 +14,6 @@ export default async function CarteiraPage() {
     getPortfolioSummary(profile.id),
     getLastDirectorySyncStatus(),
   ])
-  const hasCrypto = positions.some((position) => position.assetClass === "CRYPTO")
 
   return (
     <div className="space-y-6">
@@ -25,7 +24,7 @@ export default async function CarteiraPage() {
             Acompanhe suas posições, compras, vendas e proventos.
           </p>
           <div className="mt-1">
-            <PriceSyncStatus lastSyncedAt={lastSyncedAt} hasCrypto={hasCrypto} />
+            <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
           </div>
         </div>
         <AddInvestmentButton />

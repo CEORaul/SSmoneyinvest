@@ -6,15 +6,11 @@ import { useEffect, useRef, useState } from "react"
 
 import { runCompanyDirectorySyncAction } from "@/features/admin/actions"
 import { ENABLE_BACKGROUND_REFRESH, REFRESH_INTERVAL_MS } from "@/features/portfolio/sync-config"
-import { isBrazilMarketOpen } from "@/lib/market-hours"
 import { cn } from "@/lib/utils"
 import { formatAbsoluteTime, formatRelativeTime } from "@/utils/format"
 
 interface PriceSyncStatusProps {
   lastSyncedAt: Date | null
-  /** Cryptomoedas negociam 24h — a carteira que tiver uma continua
-   * atualizando fora do horário de pregão da B3, em vez de parar. */
-  hasCrypto: boolean
 }
 
 const LABEL_TICK_MS = 5_000
@@ -25,8 +21,12 @@ const LABEL_TICK_MS = 5_000
 /// trigger. Shows the last-known prices immediately (the page's own server
 /// render already has them) and swaps in fresh ones via router.refresh()
 /// once a sync completes, instead of a full page reload. Cadence and the
-/// on/off switch live in features/portfolio/sync-config.ts.
-export function PriceSyncStatus({ lastSyncedAt, hasCrypto }: PriceSyncStatusProps) {
+/// on/off switch live in features/portfolio/sync-config.ts. Runs purely on
+/// staleness (>REFRESH_INTERVAL_MS since last sync) — no market-hours or
+/// asset-class gating, since BRAPI's directory sync is a single batched
+/// call regardless of what's in the portfolio, and gating it previously
+/// caused non-crypto portfolios to never refresh outside B3 session hours.
+export function PriceSyncStatus({ lastSyncedAt }: PriceSyncStatusProps) {
   const router = useRouter()
   const [syncedAt, setSyncedAt] = useState(lastSyncedAt)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -36,15 +36,8 @@ export function PriceSyncStatus({ lastSyncedAt, hasCrypto }: PriceSyncStatusProp
   useEffect(() => {
     if (!ENABLE_BACKGROUND_REFRESH) return
 
-    // Crypto trades around the clock, so a portfolio holding any keeps
-    // refreshing 24/7; a stocks/FIIs-only portfolio only bothers during
-    // the B3 session — outside it the last close is already correct.
-    function shouldConsiderRefresh() {
-      return hasCrypto || isBrazilMarketOpen()
-    }
-
     async function maybeSync() {
-      if (isSyncingRef.current || !shouldConsiderRefresh()) return
+      if (isSyncingRef.current) return
 
       const neverSynced = syncedAt === null
       const stale = neverSynced || Date.now() - syncedAt!.getTime() > REFRESH_INTERVAL_MS
@@ -70,8 +63,8 @@ export function PriceSyncStatus({ lastSyncedAt, hasCrypto }: PriceSyncStatusProp
       clearInterval(pollId)
       clearInterval(labelTickId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-run when syncedAt/hasCrypto change; router/maybeSync are stable enough for this polling loop
-  }, [syncedAt, hasCrypto])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-run when syncedAt changes; router/maybeSync are stable enough for this polling loop
+  }, [syncedAt])
 
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
