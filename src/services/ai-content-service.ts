@@ -3,7 +3,7 @@ import "server-only"
 import { createHash } from "crypto"
 
 import type { AiQuestionType } from "@/generated/prisma/client"
-import { AI_MODEL, generateText } from "@/lib/ai/anthropic-client"
+import { AI_MODEL, generateText } from "@/lib/ai/gemini-client"
 import { getIndicatorsForAssetClass } from "@/features/company/indicators"
 import type { CompanyDetailDTO } from "@/features/company/queries"
 import { prisma } from "@/lib/prisma"
