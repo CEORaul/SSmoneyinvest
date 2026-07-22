@@ -104,7 +104,7 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
 
       {positionSummary && <MyPositionCard company={tradeCompany} position={positionSummary} />}
 
-      <section className="space-y-3">
+      <section id="grafico" className="scroll-mt-24 space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Gráfico</h2>
         <div className="rounded-xl border border-border bg-card p-4">
           <FinancialChart

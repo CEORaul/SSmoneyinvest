@@ -3,15 +3,20 @@
 import {
   ArrowDownUp,
   ChevronDown,
+  Copy,
   ExternalLink,
+  GitCompare,
+  Heart,
   MoreHorizontal,
   Plus,
   Receipt,
   ScrollText,
   Trash2,
 } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -30,8 +35,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { toggleFavoriteAction } from "@/features/company/actions"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { SORT_LABELS, sortPositions, type SortKey } from "@/features/portfolio/sort-positions"
 import type { PortfolioCategoryGroup, PortfolioPositionRow } from "@/features/portfolio/queries"
@@ -55,6 +62,7 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
   const [expanded, setExpanded] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>("value")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [favoritingIds, setFavoritingIds] = useState<Set<string>>(new Set())
 
   const meta = getAssetCategoryMeta(group.category)
   const sorted = sortPositions(group.positions, sortKey, sortDirection)
@@ -68,6 +76,26 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
       setSortKey(key)
       setSortDirection("desc")
     }
+  }
+
+  async function handleFavorite(position: PortfolioPositionRow) {
+    setFavoritingIds((current) => new Set(current).add(position.id))
+    const result = await toggleFavoriteAction(position.companyId, position.ticker)
+    setFavoritingIds((current) => {
+      const next = new Set(current)
+      next.delete(position.id)
+      return next
+    })
+    if (result.ok) {
+      toast.success(result.favorited ? `${position.ticker} adicionado aos favoritos.` : `${position.ticker} removido dos favoritos.`)
+    } else {
+      toast.error(result.error ?? "Não foi possível atualizar os favoritos.")
+    }
+  }
+
+  function handleCopyTicker(ticker: string) {
+    navigator.clipboard.writeText(ticker)
+    toast.success(`${ticker} copiado.`)
   }
 
   return (
@@ -165,16 +193,28 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
                   const rowIsProfit = position.profitCents >= 0
                   return (
                     <TableRow key={position.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <TickerBadge ticker={position.ticker} logoUrl={position.logoUrl} size="sm" />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{position.ticker}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {position.name}
-                            </p>
-                          </div>
-                        </div>
+                      <TableCell className="p-0">
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Link
+                                href={`/empresa/${position.ticker}`}
+                                className="group flex items-center gap-3 px-4 py-3 transition-colors duration-200 hover:bg-accent/60"
+                              />
+                            }
+                          >
+                            <TickerBadge ticker={position.ticker} logoUrl={position.logoUrl} size="sm" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium transition-colors duration-200 group-hover:text-primary">
+                                {position.ticker}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground transition-colors duration-200 group-hover:text-primary">
+                                {position.name}
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>Abrir página completa</TooltipContent>
+                        </Tooltip>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{position.quantity}</TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -260,6 +300,23 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
                             >
                               <ExternalLink className="size-4" />
                               Abrir página do ativo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/comparar?tickers=${position.ticker}`)}
+                            >
+                              <GitCompare className="size-4" />
+                              Comparar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={favoritingIds.has(position.id)}
+                              onClick={() => handleFavorite(position)}
+                            >
+                              <Heart className="size-4" />
+                              Adicionar aos favoritos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCopyTicker(position.ticker)}>
+                              <Copy className="size-4" />
+                              Copiar ticker
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem variant="destructive" onClick={() => onRemove(position)}>
