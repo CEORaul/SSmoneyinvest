@@ -83,6 +83,32 @@ export async function getPriceHistoryForCompanies(
       orderBy: { date: "asc" },
       select: { companyId: true, date: true, closeCents: true, volume: true },
     })
+
+    // A company synced at a coarser cadence (weekly/monthly, a real
+    // provider-tier limitation, not a bug) can have its first in-window
+    // point land days or weeks after `since` — the line then visibly starts
+    // partway through the chart instead of at the window's edge, even
+    // though we do have an earlier real price for it. Anchor the window's
+    // start with that last known real price (never a fabricated number,
+    // just "as of the window boundary, this was the last reported price" —
+    // the same last-observation-carried-forward convention forward-fill
+    // already uses between two real points) so every series' line spans
+    // the full selected period.
+    const beforeWindow = await prisma.priceHistoryPoint.findMany({
+      where: { companyId: { in: companyIds }, date: { lt: since } },
+      orderBy: [{ companyId: "asc" }, { date: "desc" }],
+      select: { companyId: true, date: true, closeCents: true, volume: true },
+    })
+    const seenBefore = new Set<string>()
+    const anchors = beforeWindow
+      .filter((row) => {
+        if (seenBefore.has(row.companyId)) return false
+        seenBefore.add(row.companyId)
+        return true
+      })
+      .map((row) => ({ companyId: row.companyId, date: since, closeCents: row.closeCents, volume: null }))
+
+    rows = [...anchors, ...rows]
   }
 
   for (const row of rows) {
