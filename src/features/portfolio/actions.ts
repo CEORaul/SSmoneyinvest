@@ -7,10 +7,12 @@ import {
   adjustmentSchema,
   incomeSchema,
   manualCompanySchema,
+  targetAllocationsSchema,
   tradeSchema,
   type AdjustmentInput,
   type IncomeInput,
   type ManualCompanyInput,
+  type TargetAllocationsInput,
   type TradeInput,
 } from "@/features/portfolio/schemas"
 import {
@@ -20,6 +22,7 @@ import {
   type CompanySearchResult,
 } from "@/features/portfolio/queries"
 import { requireUser } from "@/lib/auth/session"
+import { prisma } from "@/lib/prisma"
 import {
   deleteTransaction,
   previewHistoricalPrice,
@@ -208,6 +211,42 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
   // Also covers /empresa/[ticker]'s "Minha Posição" card — a trade recorded
   // there must reflect immediately on the same page, not just on /carteira.
   revalidatePath("/empresa/[ticker]", "page")
+  return { ok: true }
+}
+
+/// Replaces the user's entire target-allocation set on every save — a
+/// category left out of `input.allocations` had its target removed, not
+/// left untouched, so a delete-then-create in one transaction is correct
+/// (never an upsert-per-row, which would strand a removed category's row).
+export async function setTargetAllocationsAction(
+  input: TargetAllocationsInput
+): Promise<ActionResult> {
+  const parsed = targetAllocationsSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
+  }
+
+  const profile = await requireUser()
+  try {
+    await prisma.$transaction([
+      prisma.targetAllocation.deleteMany({ where: { profileId: profile.id } }),
+      ...(parsed.data.allocations.length > 0
+        ? [
+            prisma.targetAllocation.createMany({
+              data: parsed.data.allocations.map((a) => ({
+                profileId: profile.id,
+                assetClass: a.assetClass,
+                targetPct: a.targetPct,
+              })),
+            }),
+          ]
+        : []),
+    ])
+  } catch (error) {
+    return toErrorResult(error)
+  }
+
+  revalidatePath("/carteira")
   return { ok: true }
 }
 

@@ -3,6 +3,7 @@
 import {
   ArrowDownUp,
   ChevronDown,
+  ChevronRight,
   Copy,
   ExternalLink,
   GitCompare,
@@ -12,10 +13,12 @@ import {
   Receipt,
   ScrollText,
   Trash2,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +43,8 @@ import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { toggleFavoriteAction } from "@/features/company/actions"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
+import { ExpandedPositionDetail } from "@/features/portfolio/components/ExpandedPositionDetail"
+import { Sparkline, type SparklinePoint } from "@/features/portfolio/components/Sparkline"
 import { SORT_LABELS, sortPositions, type SortKey } from "@/features/portfolio/sort-positions"
 import type { PortfolioCategoryGroup, PortfolioPositionRow } from "@/features/portfolio/queries"
 import { cn } from "@/lib/utils"
@@ -51,18 +56,35 @@ interface CategorySectionProps {
   group: PortfolioCategoryGroup
   onAction: (type: PositionActionType, position: PortfolioPositionRow) => void
   onRemove: (position: PortfolioPositionRow) => void
+  /// When set (the global filter bar's "Ordenar" is active), supersedes
+  /// this card's own per-card sort buttons — one sort order across every
+  /// category at once instead of each card sorting independently.
+  sortOverride?: { key: SortKey; direction: "asc" | "desc" }
+  priceHistories: Map<string, SparklinePoint[]>
+  monthlyChangeByCompany: Map<string, number>
 }
 
 /// One collapsible card per AssetClass — the same shape regardless of
 /// which category it renders, since every figure comes from the already-
 /// computed PortfolioCategoryGroup. Adding a new category never means
 /// touching this component.
-export function CategorySection({ group, onAction, onRemove }: CategorySectionProps) {
+export function CategorySection({
+  group,
+  onAction,
+  onRemove,
+  sortOverride,
+  priceHistories,
+  monthlyChangeByCompany,
+}: CategorySectionProps) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(true)
-  const [sortKey, setSortKey] = useState<SortKey>("value")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [localSortKey, setLocalSortKey] = useState<SortKey>("value")
+  const [localSortDirection, setLocalSortDirection] = useState<"asc" | "desc">("desc")
   const [favoritingIds, setFavoritingIds] = useState<Set<string>>(new Set())
+  const [expandedPositionId, setExpandedPositionId] = useState<string | null>(null)
+
+  const sortKey = sortOverride?.key ?? localSortKey
+  const sortDirection = sortOverride?.direction ?? localSortDirection
 
   const meta = getAssetCategoryMeta(group.category)
   const sorted = sortPositions(group.positions, sortKey, sortDirection)
@@ -71,10 +93,10 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+      setLocalSortDirection((current) => (current === "asc" ? "desc" : "asc"))
     } else {
-      setSortKey(key)
-      setSortDirection("desc")
+      setLocalSortKey(key)
+      setLocalSortDirection("desc")
     }
   }
 
@@ -115,7 +137,7 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:flex sm:items-center sm:gap-6">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-6">
           <div>
             <p className="text-xs text-muted-foreground">Valor total</p>
             <AnimatedNumber
@@ -139,6 +161,10 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
             </span>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground">DY médio</p>
+            <span className="font-semibold tabular-nums">{formatPercent(group.totals.avgDividendYieldPct)}</span>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground">% carteira</p>
             <span className="font-semibold tabular-nums">
               {formatPercent(group.totals.allocationPct)}
@@ -156,28 +182,74 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
 
       {expanded && (
         <CardContent className="border-t border-border pt-4">
-          <div className="mb-3 flex flex-wrap gap-1">
-            {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-              <Button
-                key={key}
-                variant={sortKey === key ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => toggleSort(key)}
-              >
-                {SORT_LABELS[key]}
-                <ArrowDownUp className="size-3" />
-              </Button>
-            ))}
+          <div className="mb-4 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl bg-muted/40 p-3 text-sm sm:grid-cols-4 lg:grid-cols-8">
+            <div>
+              <p className="text-xs text-muted-foreground">Ativos</p>
+              <p className="font-medium tabular-nums">{group.totals.assetCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valor investido</p>
+              <p className="font-medium tabular-nums">{formatCurrencyCents(group.totals.investedCents)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valor atual</p>
+              <p className="font-medium tabular-nums">{formatCurrencyCents(group.totals.currentValueCents)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Lucro</p>
+              <p className={cn("font-medium tabular-nums", isProfit ? "text-gain" : "text-loss")}>
+                {formatCurrencyCents(group.totals.profitCents)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Rentabilidade</p>
+              <p className={cn("font-medium tabular-nums", isProfit ? "text-gain" : "text-loss")}>
+                {formatPercent(group.totals.profitPct)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">DY médio</p>
+              <p className="font-medium tabular-nums">{formatPercent(group.totals.avgDividendYieldPct)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Preço médio geral</p>
+              <p className="font-medium tabular-nums">{formatCurrencyCents(group.totals.avgPurchasePriceCents)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Participação</p>
+              <p className="font-medium tabular-nums">{formatPercent(group.totals.allocationPct)}</p>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-border">
+          {!sortOverride && (
+            <div className="mb-3 flex flex-wrap gap-1">
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                <Button
+                  key={key}
+                  variant={localSortKey === key ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => toggleSort(key)}
+                >
+                  {SORT_LABELS[key]}
+                  <ArrowDownUp className="size-3" />
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-xl border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8" />
                   <TableHead>Ativo</TableHead>
+                  <TableHead>Setor</TableHead>
+                  <TableHead>Gráfico</TableHead>
                   <TableHead className="text-right">Quantidade</TableHead>
                   <TableHead className="text-right">Preço médio</TableHead>
                   <TableHead className="text-right">Preço atual</TableHead>
+                  <TableHead className="text-right">Variação diária</TableHead>
+                  <TableHead className="text-right">Variação mensal</TableHead>
                   <TableHead className="text-right">Valor investido</TableHead>
                   <TableHead className="text-right">Valor atual</TableHead>
                   <TableHead className="text-right">Lucro</TableHead>
@@ -191,142 +263,202 @@ export function CategorySection({ group, onAction, onRemove }: CategorySectionPr
               <TableBody>
                 {sorted.map((position) => {
                   const rowIsProfit = position.profitCents >= 0
+                  const isDailyGain = position.priceChangePct >= 0
+                  const monthlyChangePct = monthlyChangeByCompany.get(position.companyId)
+                  const points = priceHistories.get(position.companyId) ?? []
+                  const isRowExpanded = expandedPositionId === position.id
                   return (
-                    <TableRow key={position.id}>
-                      <TableCell className="p-0">
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Link
-                                href={`/empresa/${position.ticker}`}
-                                className="group flex items-center gap-3 px-4 py-3 transition-colors duration-200 hover:bg-accent/60"
-                              />
-                            }
+                    <Fragment key={position.id}>
+                      <TableRow>
+                        <TableCell className="p-0 text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={isRowExpanded ? "Recolher detalhes" : "Expandir detalhes"}
+                            onClick={() => setExpandedPositionId(isRowExpanded ? null : position.id)}
                           >
-                            <TickerBadge ticker={position.ticker} logoUrl={position.logoUrl} size="sm" />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium transition-colors duration-200 group-hover:text-primary">
-                                {position.ticker}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground transition-colors duration-200 group-hover:text-primary">
-                                {position.name}
-                              </p>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>Abrir página completa</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{position.quantity}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCurrencyCents(position.averagePriceCents)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCurrencyCents(position.currentPriceCents)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCurrencyCents(position.investedCents)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCurrencyCents(position.currentValueCents)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right tabular-nums",
-                          rowIsProfit ? "text-gain" : "text-loss"
-                        )}
-                      >
-                        {formatCurrencyCents(position.profitCents)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right tabular-nums",
-                          rowIsProfit ? "text-gain" : "text-loss"
-                        )}
-                      >
-                        {formatPercent(position.profitPct)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatPercent(position.dividendYieldPct)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatPercent(position.allocationPct)}
-                      </TableCell>
-                      {/* "há Xs" necessarily reads differently between the
-                          server render and client hydration a moment later
-                          — suppressHydrationWarning is React's documented
-                          escape hatch for exactly this class of value. */}
-                      <TableCell
-                        className="text-right text-xs text-muted-foreground"
-                        suppressHydrationWarning
-                      >
-                        {formatRelativeTime(position.lastUpdatedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Ações para ${position.ticker}`}
-                              />
-                            }
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onAction("buy", position)}>
-                              <Plus className="size-4" />
-                              Comprar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onAction("sell", position)}>
-                              <Receipt className="size-4" />
-                              Vender
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onAction("income", position)}>
-                              <Receipt className="size-4" />
-                              Registrar provento
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onAction("adjustment", position)}>
-                              <ScrollText className="size-4" />
-                              Ajuste de posição
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onAction("history", position)}>
-                              <ScrollText className="size-4" />
-                              Editar operações
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => router.push(`/empresa/${position.ticker}`)}
+                            <ChevronRight className={cn("size-4 transition-transform", isRowExpanded && "rotate-90")} />
+                          </Button>
+                        </TableCell>
+                        <TableCell className="p-0">
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Link
+                                  href={`/empresa/${position.ticker}`}
+                                  className="group flex items-center gap-3 px-4 py-3 transition-colors duration-200 hover:bg-accent/60"
+                                />
+                              }
                             >
-                              <ExternalLink className="size-4" />
-                              Abrir página do ativo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => router.push(`/comparar?tickers=${position.ticker}`)}
+                              <TickerBadge ticker={position.ticker} logoUrl={position.logoUrl} size="sm" />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium transition-colors duration-200 group-hover:text-primary">
+                                  {position.ticker}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground transition-colors duration-200 group-hover:text-primary">
+                                  {position.name}
+                                </p>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>Abrir página completa</TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{position.sector ?? "—"}</TableCell>
+                        <TableCell>
+                          <Sparkline points={points} isGain={isDailyGain} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{position.quantity}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrencyCents(position.averagePriceCents)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrencyCents(position.currentPriceCents)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            isDailyGain ? "text-gain" : "text-loss"
+                          )}
+                        >
+                          <span className="inline-flex items-center justify-end gap-1">
+                            {isDailyGain ? (
+                              <TrendingUp className="size-3.5" />
+                            ) : (
+                              <TrendingDown className="size-3.5" />
+                            )}
+                            {formatPercent(position.priceChangePct)}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            monthlyChangePct == null
+                              ? "text-muted-foreground"
+                              : monthlyChangePct >= 0
+                                ? "text-gain"
+                                : "text-loss"
+                          )}
+                        >
+                          {monthlyChangePct == null ? "—" : formatPercent(monthlyChangePct)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrencyCents(position.investedCents)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCurrencyCents(position.currentValueCents)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            rowIsProfit ? "text-gain" : "text-loss"
+                          )}
+                        >
+                          {formatCurrencyCents(position.profitCents)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right tabular-nums",
+                            rowIsProfit ? "text-gain" : "text-loss"
+                          )}
+                        >
+                          {formatPercent(position.profitPct)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(position.dividendYieldPct)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(position.allocationPct)}
+                        </TableCell>
+                        {/* "há Xs" necessarily reads differently between the
+                            server render and client hydration a moment later
+                            — suppressHydrationWarning is React's documented
+                            escape hatch for exactly this class of value. */}
+                        <TableCell
+                          className="text-right text-xs text-muted-foreground"
+                          suppressHydrationWarning
+                        >
+                          {formatRelativeTime(position.lastUpdatedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Ações para ${position.ticker}`}
+                                />
+                              }
                             >
-                              <GitCompare className="size-4" />
-                              Comparar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={favoritingIds.has(position.id)}
-                              onClick={() => handleFavorite(position)}
-                            >
-                              <Heart className="size-4" />
-                              Adicionar aos favoritos
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCopyTicker(position.ticker)}>
-                              <Copy className="size-4" />
-                              Copiar ticker
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" onClick={() => onRemove(position)}>
-                              <Trash2 className="size-4" />
-                              Excluir ativo
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                              <MoreHorizontal className="size-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onAction("buy", position)}>
+                                <Plus className="size-4" />
+                                Comprar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction("sell", position)}>
+                                <Receipt className="size-4" />
+                                Vender
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction("income", position)}>
+                                <Receipt className="size-4" />
+                                Registrar provento
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction("adjustment", position)}>
+                                <ScrollText className="size-4" />
+                                Ajuste de posição
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onAction("history", position)}>
+                                <ScrollText className="size-4" />
+                                Editar operações
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/empresa/${position.ticker}`)}
+                              >
+                                <ExternalLink className="size-4" />
+                                Abrir página do ativo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/comparar?tickers=${position.ticker}`)}
+                              >
+                                <GitCompare className="size-4" />
+                                Comparar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={favoritingIds.has(position.id)}
+                                onClick={() => handleFavorite(position)}
+                              >
+                                <Heart className="size-4" />
+                                Adicionar aos favoritos
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyTicker(position.ticker)}>
+                                <Copy className="size-4" />
+                                Copiar ticker
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem variant="destructive" onClick={() => onRemove(position)}>
+                                <Trash2 className="size-4" />
+                                Excluir ativo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                      {isRowExpanded && (
+                        <TableRow key={`${position.id}-detail`}>
+                          <TableCell colSpan={16} className="bg-muted/20 p-0">
+                            <ExpandedPositionDetail
+                              companyId={position.companyId}
+                              ticker={position.ticker}
+                              averagePriceCents={position.averagePriceCents}
+                              unrealizedProfitCents={position.profitCents}
+                              lastUpdatedAt={position.lastUpdatedAt}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   )
                 })}
               </TableBody>

@@ -12,6 +12,7 @@ export interface PortfolioPositionRow {
   ticker: string
   name: string
   logoUrl: string | null
+  sector: string | null
   assetClass: AssetClass
   priceSource: PriceSource
   quantity: string
@@ -40,7 +41,18 @@ export interface PortfolioTotals {
 export interface PortfolioCategoryGroup {
   category: AssetClass
   positions: PortfolioPositionRow[]
-  totals: PortfolioTotals & { dailyChangePct: number; allocationPct: number }
+  totals: PortfolioTotals & {
+    dailyChangePct: number
+    allocationPct: number
+    /// Value-weighted (by currentValueCents) — a simple arithmetic mean
+    /// would let one tiny position's yield distort the category figure as
+    /// much as the position actually driving most of its value.
+    avgDividendYieldPct: number
+    /// Value-weighted average of each position's own averagePriceCents —
+    /// "preço médio geral" in the category summary, not a per-ticker figure
+    /// (those already exist per-row).
+    avgPurchasePriceCents: number
+  }
 }
 
 export interface PortfolioSummary {
@@ -89,6 +101,16 @@ function groupPositionsByCategory(
         ? rows.reduce((sum, row) => sum + row.priceChangePct * row.currentValueCents, 0) /
           currentValueCents
         : 0
+    const avgDividendYieldPct =
+      currentValueCents > 0
+        ? rows.reduce((sum, row) => sum + row.dividendYieldPct * row.currentValueCents, 0) /
+          currentValueCents
+        : 0
+    const avgPurchasePriceCents =
+      currentValueCents > 0
+        ? rows.reduce((sum, row) => sum + row.averagePriceCents * row.currentValueCents, 0) /
+          currentValueCents
+        : 0
 
     const group: PortfolioCategoryGroup = {
       category: category.value,
@@ -101,6 +123,8 @@ function groupPositionsByCategory(
         dividendsReceivedCents,
         assetCount: rows.length,
         dailyChangePct,
+        avgDividendYieldPct,
+        avgPurchasePriceCents,
         allocationPct:
           portfolioCurrentValueCents > 0
             ? (currentValueCents / portfolioCurrentValueCents) * 100
@@ -151,6 +175,7 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
       ticker: position.company.ticker,
       name: position.company.name,
       logoUrl: position.company.logoUrl,
+      sector: position.company.sector,
       assetClass: position.company.assetClass,
       priceSource: position.company.priceSource,
       quantity: position.quantity.toString(),

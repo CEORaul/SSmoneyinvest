@@ -68,3 +68,14 @@ const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
 export function formatAbsoluteTime(date: Date): string {
   return timeFormatter.format(date)
 }
+
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+})
+
+export function formatDate(date: Date | string): string {
+  return dateFormatter.format(typeof date === "string" ? new Date(date) : date)
+}

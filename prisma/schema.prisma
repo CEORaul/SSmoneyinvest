@@ -28,11 +28,12 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  favorites        Favorite[]
-  portfolioEntries PortfolioPosition[]
-  transactions     Transaction[]
-  preferences      UserPreferences?
-  searchLogs       SearchLog[]
+  favorites         Favorite[]
+  portfolioEntries  PortfolioPosition[]
+  transactions      Transaction[]
+  preferences       UserPreferences?
+  searchLogs        SearchLog[]
+  targetAllocations TargetAllocation[]
 
   @@map("profiles")
 }
@@ -593,4 +594,25 @@ model SearchLog {
   @@index([companyId, kind, createdAt])
   @@index([profileId, kind, createdAt])
   @@map("search_logs")
+}
+
+// ─────────────────────────────────────────────────────────
+// Rebalancing
+// ─────────────────────────────────────────────────────────
+
+/// A user-configured target allocation, one row per category they've set a
+/// goal for — absence of a row for a category simply means "no target set
+/// for this category," not a target of 0%. Read-only comparison logic
+/// lives in src/features/portfolio/rebalancing.ts; this table never
+/// affects PortfolioPosition/Transaction or portfolio-service.ts at all.
+model TargetAllocation {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  assetClass AssetClass
+  targetPct  Decimal  @db.Decimal(5, 2)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([profileId, assetClass])
+  @@map("target_allocations")
 }

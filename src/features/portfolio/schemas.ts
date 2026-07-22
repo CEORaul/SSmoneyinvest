@@ -55,3 +55,21 @@ export const manualCompanySchema = z.object({
   assetClass: z.enum(ASSET_CLASS_VALUES),
 })
 export type ManualCompanyInput = z.infer<typeof manualCompanySchema>
+
+// A category simply absent from `allocations` means "no target set" — the
+// caller (setTargetAllocationsAction) replaces the whole set on save, so
+// omitting a category here deletes any target it previously had.
+export const targetAllocationsSchema = z.object({
+  allocations: z
+    .array(
+      z.object({
+        assetClass: z.enum(ASSET_CLASS_VALUES),
+        targetPct: z.coerce.number().min(0, "Mínimo 0%.").max(100, "Máximo 100%."),
+      })
+    )
+    .refine(
+      (allocations) => allocations.reduce((sum, a) => sum + a.targetPct, 0) <= 100.01,
+      { message: "A soma dos percentuais alvo não pode passar de 100%." }
+    ),
+})
+export type TargetAllocationsInput = z.infer<typeof targetAllocationsSchema>
