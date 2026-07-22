@@ -1,3 +1,16 @@
+/// Calendar-day key (YYYY-MM-DD), not a full ISO timestamp — a batch sync
+/// stamps every company it touches with its own real time-of-day (a few
+/// seconds apart from the next company in the same run), so comparing full
+/// ISO strings treats same-day points from different companies as
+/// different dates. That fragmented the merged chart axis into many
+/// near-duplicate columns instead of one per real trading day. Both
+/// /comparar's page.tsx and its Server Actions convert PriceHistoryPoint/
+/// DividendPayment dates through this before they ever become a
+/// ChartSeriesPoint — this is the one place that conversion happens.
+export function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
 export type ComparisonViewMode =
   | "PRICE"
   | "RETURN_PCT"

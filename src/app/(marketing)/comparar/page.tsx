@@ -4,6 +4,7 @@ import { computeTrailingDividendYield, type CompanyDetailDTO } from "@/features/
 import type { ChartPeriod } from "@/features/company/queries"
 import { getCompaniesByTickers, getDividendHistoryForCompanies, getPriceHistoryForCompanies } from "@/features/comparator/queries"
 import { assignColors } from "@/features/comparator/colors"
+import { toDateKey } from "@/features/comparator/chart-modes"
 import { MAX_COMPARISON_ASSETS } from "@/features/comparator/constants"
 import { ComparatorControls } from "@/features/comparator/components/ComparatorControls"
 import { ComparisonAnalysisPanel } from "@/features/comparator/components/ComparisonAnalysisPanel"
@@ -94,11 +95,11 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     companyId: company.id,
     ticker: company.ticker,
     pricePoints: (priceHistory.get(company.id) ?? []).map((point) => ({
-      date: point.date.toISOString(),
+      date: toDateKey(point.date),
       closeCents: point.closeCents,
     })),
     dividendPoints: (dividendHistory.get(company.id) ?? []).map((payment) => ({
-      exDate: payment.exDate.toISOString(),
+      exDate: toDateKey(payment.exDate),
       amountPerShare: payment.amountPerShare,
     })),
     position: positionByCompanyId.get(company.id) ?? null,

@@ -3,6 +3,7 @@
 import type { AssetClass } from "@/generated/prisma/client"
 import { computeTrailingDividendYield, getFavoriteCompanies } from "@/features/company/queries"
 import type { ChartPeriod } from "@/features/company/queries"
+import { toDateKey } from "@/features/comparator/chart-modes"
 import {
   getCompaniesByTickers,
   getDividendHistoryForCompanies,
@@ -142,7 +143,7 @@ export async function getPriceHistoryForCompaniesAction(
   return companyIds.map((companyId) => ({
     companyId,
     points: (map.get(companyId) ?? []).map((point) => ({
-      date: point.date.toISOString(),
+      date: toDateKey(point.date),
       closeCents: point.closeCents,
     })),
   }))
