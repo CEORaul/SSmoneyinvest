@@ -7,9 +7,7 @@ import {
   getCompaniesByTickers,
   getDividendHistoryForCompanies,
   getPriceHistoryForCompanies,
-  getTopCompaniesByAssetClass,
 } from "@/features/comparator/queries"
-import { getTopDividendPayers } from "@/features/market/queries"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { getOptionalProfile } from "@/lib/auth/session"
 import { aiContentService } from "@/services/ai-content-service"
@@ -46,24 +44,13 @@ export async function getFavoriteTickersAction(): Promise<string[]> {
   return favorites.map((company) => company.ticker)
 }
 
-/// "Dividendos" — market-wide top payers (reuses the same query the Home
-/// page's "Top Dividendos" section already calls), not portfolio-scoped.
-export async function getDividendPayersTickersAction(): Promise<string[]> {
-  const payers = await getTopDividendPayers(10)
-  return payers.map((company) => company.ticker)
-}
-
-/// "Todas as Ações"/"Todos os FIIs"/"Todos ETFs"/"Todas Criptos" — market-
-/// wide, ranked by market cap.
-export async function getMarketTopTickersAction(assetClass: AssetClass): Promise<string[]> {
-  const companies = await getTopCompaniesByAssetClass(assetClass)
-  return companies.map((company) => company.ticker)
-}
-
-/// Backs "Comparar minha carteira"'s sub-filters (Todas posições/Somente
-/// ações/FIIs/ETFs/Criptos/Somente favoritos) — one action, every filter
-/// combination, since they're all just different slices of the same
-/// already-computed portfolio summary.
+/// Backs the quick-select's category sub-filters (Todas posições/Somente
+/// ações/FIIs/ETFs/Criptos) — one action, every filter combination, since
+/// they're all just different slices of the same already-computed
+/// portfolio summary. Every quick-select in the comparator is scoped to
+/// the signed-in user's own holdings/favorites — there is deliberately no
+/// market-wide "top N by market cap" shortcut here (that produced
+/// confusing comparisons of stocks the user doesn't own).
 export async function getPortfolioTickersByFilterAction(filter: {
   assetClass?: AssetClass
   favoritesOnly?: boolean

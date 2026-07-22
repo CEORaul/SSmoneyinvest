@@ -60,8 +60,7 @@ export function ComparatorControls({ companies, unresolvedTickers }: ComparatorC
             disabledReason={`Máximo de ${MAX_COMPARISON_ASSETS} ativos por comparação`}
           />
         </div>
-        <QuickSelectMenu scope="market" onSelect={addTickers} />
-        <QuickSelectMenu scope="portfolio" onSelect={addTickers} />
+        <QuickSelectMenu onSelect={addTickers} />
       </div>
 
       {unresolvedTickers.length > 0 && (

@@ -1,6 +1,5 @@
 import "server-only"
 
-import type { AssetClass } from "@/generated/prisma/client"
 import {
   COMPANY_DETAIL_INCLUDE,
   toDetailDTO,
@@ -9,9 +8,7 @@ import {
   type DividendPaymentDTO,
   type PricePointDTO,
 } from "@/features/company/queries"
-import { MAX_COMPARISON_ASSETS } from "@/features/comparator/constants"
 import { prisma } from "@/lib/prisma"
-import type { CompanyListItem } from "@/types"
 
 /// Batched equivalent of calling getCompanyByTicker N times — one query,
 /// same Decimal/BigInt serialization (toDetailDTO), re-sorted to match
@@ -126,24 +123,3 @@ export async function getDividendHistoryForCompanies(
   return result
 }
 
-/// Market-wide "Todas as Ações/FIIs/ETFs/Criptos" quick-select — ranked by
-/// market cap, capped at the comparator's own 10-asset limit so a quick-
-/// select can never itself exceed what the picker allows.
-export async function getTopCompaniesByAssetClass(
-  assetClass: AssetClass,
-  limit = MAX_COMPARISON_ASSETS
-): Promise<CompanyListItem[]> {
-  const rows = await prisma.company.findMany({
-    where: { assetClass, priceCents: { gt: 0 } },
-    orderBy: { marketCapCents: "desc" },
-    take: limit,
-  })
-  return rows.map((row) => ({
-    ticker: row.ticker,
-    name: row.name,
-    logoUrl: row.logoUrl,
-    priceCents: row.priceCents,
-    changePct: Number(row.priceChangePct),
-    dividendYield: 0,
-  }))
-}
