@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation"
+
 import { computeTrailingDividendYield, type CompanyDetailDTO } from "@/features/company/queries"
 import type { ChartPeriod } from "@/features/company/queries"
 import { getCompaniesByTickers, getDividendHistoryForCompanies, getPriceHistoryForCompanies } from "@/features/comparator/queries"
@@ -32,6 +34,20 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   const requestedTickers = parseTickers(tickersParam)
 
   const profile = await getOptionalProfile()
+  const portfolioSummary = profile ? await getPortfolioSummary(profile.id) : null
+
+  // Landing on /comparar with no ?tickers= is no longer an empty state for
+  // a signed-in visitor with a portfolio — default straight to "Todas as
+  // posições" instead of an empty picker. Goes through a real redirect
+  // (not just rendering with different data) so the URL stays the single
+  // source of truth for selection — the page is still shareable/
+  // bookmarkable at exactly what it shows.
+  if (requestedTickers.length === 0 && portfolioSummary && portfolioSummary.positions.length > 0) {
+    const defaultTickers = portfolioSummary.positions
+      .slice(0, MAX_COMPARISON_ASSETS)
+      .map((position) => position.ticker)
+    redirect(`/comparar?tickers=${defaultTickers.join(",")}`)
+  }
 
   const rawCompanies =
     requestedTickers.length > 0 ? await getCompaniesByTickers(requestedTickers) : []
@@ -43,10 +59,9 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   // getPriceHistoryForCompanies/getDividendHistoryForCompanies both already
   // short-circuit to an empty Map for an empty companyIds array, so this
   // stays a single unconditional Promise.all rather than branching.
-  const [priceHistory, dividendHistory, portfolioSummary] = await Promise.all([
+  const [priceHistory, dividendHistory] = await Promise.all([
     getPriceHistoryForCompanies(companyIds, DEFAULT_CHART_PERIOD),
     getDividendHistoryForCompanies(companyIds),
-    profile ? getPortfolioSummary(profile.id) : Promise.resolve(null),
   ])
 
   // Same override the individual /empresa/[ticker] page applies —

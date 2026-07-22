@@ -325,7 +325,17 @@ export function FinancialChart({
                     strokeOpacity={highlightedId == null || highlightedId === s.companyId ? 1 : 0.25}
                     fill="transparent"
                     dot={false}
-                    connectNulls={false}
+                    // true, not false: each company's own real points can be
+                    // sparser than others sharing this merged date axis (the
+                    // data provider silently returns coarser-than-daily
+                    // granularity for some tickers on the current plan
+                    // tier) — mergeSeriesByDate fills every date a company
+                    // has no point for with null, and with connectNulls
+                    // disabled a sparse series breaks into invisible
+                    // fragments instead of one line across its own real
+                    // points. This still never fabricates a value — it only
+                    // draws a straight segment between two real known prices.
+                    connectNulls
                     isAnimationActive={false}
                   />
                 ))}
