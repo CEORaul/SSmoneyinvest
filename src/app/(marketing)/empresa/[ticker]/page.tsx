@@ -14,6 +14,8 @@ import {
 } from "@/features/company/queries"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import type { TradeCompany } from "@/features/portfolio/components/TradeDialog"
+import { logAssetView } from "@/features/search/queries"
+import { RecentViewTracker } from "@/features/search/components/RecentViewTracker"
 import { BalancoCard } from "@/features/company/components/BalancoCard"
 import { CompanyHealthScore } from "@/features/company/components/CompanyHealthScore"
 import { CompanyHeader } from "@/features/company/components/CompanyHeader"
@@ -50,6 +52,9 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
       getDividendHistory(dto.id),
       getCotacaoStats(dto),
       profile ? isCompanyFavorited(profile.id, dto.id) : Promise.resolve(false),
+      // Real usage data for "Últimos ativos vistos" (mega menu, search
+      // dropdown) — best-effort, never blocks or fails the page render.
+      logAssetView(dto.id, profile?.id ?? null),
     ])
 
   const category = getAssetCategoryMeta(dto.assetClass)
@@ -91,6 +96,19 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+      <RecentViewTracker
+        isAuthenticated={!!profile}
+        company={{
+          id: dto.id,
+          ticker: dto.ticker,
+          name: dto.name,
+          logoUrl: dto.logoUrl,
+          assetClass: dto.assetClass,
+          priceCents: dto.priceCents,
+          priceChangePct: dto.priceChangePct,
+        }}
+      />
+
       <CompanyHeader
         dto={dto}
         tradeCompany={tradeCompany}

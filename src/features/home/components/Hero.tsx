@@ -5,13 +5,15 @@ import { motion } from "motion/react"
 
 import { Button } from "@/components/ui/button"
 import { DashboardMockup } from "@/features/home/components/DashboardMockup"
-import { TickerSearch } from "@/features/home/components/TickerSearch"
+import { GlobalSearch } from "@/features/search/components/GlobalSearch"
+import type { SearchDropdownDefaults } from "@/features/search/actions"
 
 interface HeroProps {
   isAuthenticated: boolean
+  initialSearchDefaults: SearchDropdownDefaults
 }
 
-export function Hero({ isAuthenticated }: HeroProps) {
+export function Hero({ isAuthenticated, initialSearchDefaults }: HeroProps) {
   return (
     <section className="relative overflow-hidden px-6 pt-16 pb-24 sm:pt-20">
       <div
@@ -56,7 +58,12 @@ export function Hero({ isAuthenticated }: HeroProps) {
           transition={{ duration: 0.5, delay: 0.15 }}
           className="mt-8 w-full"
         >
-          <TickerSearch />
+          <GlobalSearch
+            variant="inline"
+            isAuthenticated={isAuthenticated}
+            initialDefaults={initialSearchDefaults}
+            placeholder="Buscar ação, FII, ETF, cripto... (ex: PETR4)"
+          />
         </motion.div>
 
         <motion.div

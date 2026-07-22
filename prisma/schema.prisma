@@ -32,6 +32,7 @@ model Profile {
   portfolioEntries PortfolioPosition[]
   transactions     Transaction[]
   preferences      UserPreferences?
+  searchLogs       SearchLog[]
 
   @@map("profiles")
 }
@@ -190,6 +191,7 @@ model Company {
   transactions           Transaction[]
   quoteValidationAlerts  QuoteValidationAlert[]
   aiContent              AiContent[]
+  searchLogs             SearchLog[]
 
   @@index([assetClass])
   @@index([sector])
@@ -553,4 +555,42 @@ model Transaction {
   @@index([profileId, date])
   @@index([profileId, companyId])
   @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────
+// Search
+// ─────────────────────────────────────────────────────────
+
+enum SearchLogKind {
+  /// A result was selected from the global search dropdown/autocomplete.
+  SEARCH
+  /// The /empresa/[ticker] page was viewed, via any entry point.
+  VIEW
+}
+
+/// Real usage log — backs "mais pesquisados" (aggregate SEARCH count),
+/// "últimos ativos vistos" (per-profile VIEW rows), and "últimas
+/// pesquisas" (per-profile SEARCH rows). Replaces the hardcoded
+/// POPULAR_TICKERS list that used to stand in for "popular" in
+/// market/queries.ts. `profileId` is null for an anonymous visitor —
+/// their own recent list lives in localStorage instead, but the
+/// anonymous click itself still counts toward the global SEARCH
+/// aggregate, so "mais pesquisados" reflects real site-wide activity,
+/// not just logged-in users.
+model SearchLog {
+  id        String        @id @default(uuid())
+  companyId String
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  profileId String?
+  profile   Profile?      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  kind      SearchLogKind
+  /// Raw text typed when this was a SEARCH selection — null for VIEW rows.
+  /// Never used for ranking (companyId is); kept only for future query-
+  /// quality analysis.
+  query     String?
+  createdAt DateTime      @default(now())
+
+  @@index([companyId, kind, createdAt])
+  @@index([profileId, kind, createdAt])
+  @@map("search_logs")
 }

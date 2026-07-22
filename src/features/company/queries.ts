@@ -443,11 +443,21 @@ export async function getSectorIndicatorAverage(
   return { average, sampleSize: values.length }
 }
 
+/// Superset of CompanyListItem — the id/assetClass/sector are needed by the
+/// global search dropdown (category badge, click-through logging) but
+/// harmless extra fields for every other existing consumer (comparator's
+/// "Favoritos" quick-select only ever reads .ticker off this).
+export interface FavoriteCompanyItem extends CompanyListItem {
+  id: string
+  assetClass: AssetClass
+  sector: string | null
+}
+
 /// General-purpose favorites listing — backs the comparator's "Favoritos"
-/// quick-select and (eventually) the still-empty /favoritos page. DY comes
-/// from the same batched trailing-yield helper every other list uses, never
-/// hardcoded to 0.
-export async function getFavoriteCompanies(profileId: string): Promise<CompanyListItem[]> {
+/// quick-select, the global search dropdown's "Favoritos" section, and
+/// (eventually) the still-empty /favoritos page. DY comes from the same
+/// batched trailing-yield helper every other list uses, never hardcoded to 0.
+export async function getFavoriteCompanies(profileId: string): Promise<FavoriteCompanyItem[]> {
   const favorites = await prisma.favorite.findMany({
     where: { profileId },
     include: { company: true },
@@ -460,9 +470,12 @@ export async function getFavoriteCompanies(profileId: string): Promise<CompanyLi
   )
 
   return favorites.map((favorite) => ({
+    id: favorite.companyId,
     ticker: favorite.company.ticker,
     name: favorite.company.name,
     logoUrl: favorite.company.logoUrl,
+    assetClass: favorite.company.assetClass,
+    sector: favorite.company.sector,
     priceCents: favorite.company.priceCents,
     changePct: Number(favorite.company.priceChangePct),
     dividendYield: dividendYields.get(favorite.companyId) ?? 0,

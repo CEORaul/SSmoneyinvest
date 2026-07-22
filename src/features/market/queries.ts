@@ -1,18 +1,10 @@
 import "server-only"
 
+import type { AssetClass } from "@/generated/prisma/client"
 import { TRAILING_DIVIDEND_WINDOW_DAYS } from "@/features/market/dividend-yield"
+import { getTrendingAssets } from "@/features/search/queries"
 import { prisma } from "@/lib/prisma"
 import type { CompanyListItem } from "@/types"
-
-const POPULAR_TICKERS = [
-  "PETR4",
-  "VALE3",
-  "BBAS3",
-  "ITUB4",
-  "WEGE3",
-  "TAEE11",
-  "MXRF11",
-]
 
 interface CompanyRow {
   ticker: string
@@ -99,13 +91,34 @@ export async function getTopDividendPayers(limit = 4): Promise<CompanyListItem[]
     .slice(0, limit)
 }
 
-export async function getPopularCompanies(): Promise<CompanyListItem[]> {
-  const companies = await prisma.company.findMany({
-    where: { ticker: { in: POPULAR_TICKERS } },
-  })
-  const byTicker = new Map(companies.map((company) => [company.ticker, company]))
+/// "Popular" = a real aggregate of what people actually search for
+/// (getTrendingAssets, backed by SearchLog) — never a hand-picked ticker
+/// list. On a cold start (no searches logged yet, e.g. right after
+/// deploying this feature) falls back to the biggest companies by market
+/// cap, which is still real ranked data, not a fabricated substitute.
+export async function getPopularCompanies(limit = 7): Promise<CompanyListItem[]> {
+  const trending = await getTrendingAssets(limit)
+  if (trending.length > 0) {
+    return trending.map((company) => ({
+      ticker: company.ticker,
+      name: company.name,
+      logoUrl: company.logoUrl,
+      priceCents: company.priceCents,
+      changePct: company.changePct,
+      dividendYield: 0,
+    }))
+  }
 
-  return POPULAR_TICKERS.map((ticker) => byTicker.get(ticker))
-    .filter((company): company is NonNullable<typeof company> => company != null)
-    .map((company) => toListItem(company))
+  return getHighlightedCompanies(limit)
+}
+
+/// Backs the /acoes, /fiis, /etfs category listing pages (and their mega
+/// menu's "Ver todas" link) — every real, priced company in that category,
+/// ranked by market cap.
+export async function getCompaniesByAssetClass(assetClass: AssetClass): Promise<CompanyListItem[]> {
+  const companies = await prisma.company.findMany({
+    where: { assetClass, priceCents: { gt: 0 } },
+    orderBy: { marketCapCents: "desc" },
+  })
+  return companies.map((company) => toListItem(company))
 }
