@@ -91,6 +91,15 @@ interface MergedRow {
 /// (company → comparator, never the reverse), so importing it here would
 /// invert the dependency direction. The merge logic itself is ~10 lines;
 /// duplicating it is cheaper than the layering violation.
+/// Forward-fills each series onto every date in the shared axis with its
+/// own last known real value, rather than leaving a true null on any date
+/// that isn't exactly one of that series' own points. This is what makes
+/// the tooltip (and the line) show every visible series together when
+/// hovering, even when companies were synced at different granularities
+/// (daily vs. weekly vs. monthly, a real provider-side difference, not a
+/// bug) — "last reported price" is a standard, honest convention, not a
+/// fabricated in-between value. A series still shows nothing before its
+/// own first real point (no data to carry forward from yet).
 function mergeSeriesByDate(series: ChartSeries[]): MergedRow[] {
   const allDates = new Set<string>()
   for (const s of series) {
@@ -98,12 +107,16 @@ function mergeSeriesByDate(series: ChartSeries[]): MergedRow[] {
   }
   const sortedDates = [...allDates].sort()
 
+  const pointMaps = series.map((s) => new Map(s.points.map((p) => [p.date, p.value])))
+  const lastKnown = new Map<string, number | null>(series.map((s) => [s.companyId, null]))
+
   return sortedDates.map((date) => {
     const row: MergedRow = { date }
-    for (const s of series) {
-      const point = s.points.find((p) => p.date === date)
-      row[s.companyId] = point?.value ?? null
-    }
+    series.forEach((s, index) => {
+      const exact = pointMaps[index].get(date)
+      if (exact !== undefined) lastKnown.set(s.companyId, exact)
+      row[s.companyId] = lastKnown.get(s.companyId) ?? null
+    })
     return row
   })
 }
