@@ -152,6 +152,162 @@ export const aiContentService = {
       return null
     }
   },
+
+  /// "Resumo Executivo" at the top of /comparar — 3-4 sentences, cached by
+  /// comparisonKey (sorted, comma-joined tickers) so the same set of
+  /// companies hits cache regardless of URL order.
+  async getOrGenerateComparisonSummary(
+    companies: CompanyDetailDTO[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      const comparisonKey = toComparisonKey(companies)
+      const factsBlock = buildComparisonFactsBlock(companies)
+      if (!factsBlock) return null
+
+      const sourceHash = hashComparisonInputs(companies)
+      const cacheWhere = {
+        companyId: null,
+        kind: "COMPARISON_SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          `Escreva um "Resumo Executivo" de 3 a 4 frases comparando estes ativos, com base ` +
+          `apenas nos dados fornecidos. Destaque diferenças concretas (ex.: maior crescimento, ` +
+          `menor múltiplo, maior dividend yield) somente quando os dados permitirem a comparação ` +
+          `direta:\n${factsBlock}`,
+        maxTokens: 400,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// "Analisar Comparação" button — a structured, multi-dimension analysis.
+  /// Same cache shape as the summary, different AiContentKind/prompt/token
+  /// budget (kept as a separate function rather than a mode flag, since the
+  /// two diverge enough that branching would just move the complexity).
+  async getOrGenerateComparisonAnalysis(
+    companies: CompanyDetailDTO[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      const comparisonKey = toComparisonKey(companies)
+      const factsBlock = buildComparisonFactsBlock(companies)
+      if (!factsBlock) return null
+
+      const sourceHash = hashComparisonInputs(companies)
+      const cacheWhere = {
+        companyId: null,
+        kind: "COMPARISON_ANALYSIS" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          "Analise esta comparação de ativos com base apenas nos dados fornecidos abaixo. " +
+          "Estruture a resposta em tópicos curtos: (1) Resumo geral, (2) Pontos fortes de cada " +
+          "ativo, (3) Pontos fracos de cada ativo, (4) Principais diferenças, (5) Quem lidera em " +
+          "rentabilidade, crescimento, distribuição de dividendos, endividamento e eficiência " +
+          "(ROE/ROIC) — cite qual ativo lidera em cada dimensão apenas quando os dados de todos " +
+          'os ativos comparados permitirem essa conclusão; caso contrário, escreva explicitamente ' +
+          '"não é possível comparar" para aquela dimensão, sem estimar um valor. Use linguagem ' +
+          `simples, sem recomendação de compra ou venda:\n${factsBlock}`,
+        maxTokens: 700,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+}
+
+function toComparisonKey(companies: CompanyDetailDTO[]): string {
+  return [...companies.map((c) => c.ticker)].sort().join(",")
+}
+
+/// Sorted by ticker (not the caller's array order, which mirrors URL/chip
+/// order) so the same set of companies in a different order hashes
+/// identically — this is what makes the comparisonKey cache lookup truly
+/// order-independent instead of just sharing a key that then always misses.
+function sortedByTicker(companies: CompanyDetailDTO[]): CompanyDetailDTO[] {
+  return [...companies].sort((a, b) => a.ticker.localeCompare(b.ticker))
+}
+
+function hashComparisonInputs(companies: CompanyDetailDTO[]): string {
+  return hashInputs([
+    toComparisonKey(companies),
+    ...sortedByTicker(companies).flatMap((c) => [
+      c.priceCents,
+      c.priceChangePct,
+      c.sector,
+      c.stock?.roe,
+      c.stock?.roic,
+      c.stock?.netMargin,
+      c.stock?.priceToEarnings,
+      c.stock?.netDebtToEbitda,
+      c.stock?.revenueCagr3y,
+      c.stock?.dividendYield ?? c.fii?.dividendYield ?? c.etf?.dividendYield,
+    ]),
+  ])
+}
+
+/// Generalizes buildKnownFactsList into a per-company block under a
+/// "### {ticker}" heading — same non-null-gated fact-building, just applied
+/// N times and joined. Returns "" (never generated, never prompted) when
+/// every company's own facts list is empty. Sorted by ticker (not caller
+/// order) so the exact same prompt — and therefore the exact same cache
+/// entry — is produced regardless of which order the tickers appear in
+/// the /comparar URL.
+function buildComparisonFactsBlock(companies: CompanyDetailDTO[]): string {
+  const blocks = sortedByTicker(companies)
+    .map((company) => {
+      const facts = buildKnownFactsList(company)
+      if (facts.length === 0) return null
+      return `### ${company.ticker} (${company.name})\n${facts.join("\n")}`
+    })
+    .filter((block): block is string => block != null)
+
+  return blocks.join("\n\n")
 }
 
 function buildKnownFactsList(dto: CompanyDetailDTO): string[] {

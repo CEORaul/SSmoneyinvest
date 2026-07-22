@@ -76,6 +76,17 @@
   --chart-3: oklch(0.72 0.15 75);
   --chart-4: oklch(0.58 0.18 305);
   --chart-5: oklch(0.6 0.19 25);
+  /* Comparador (/comparar) categorical series — validated via
+     dataviz skill's validate_palette.js (CVD + normal-vision + contrast),
+     fixed hue order, never cycled/regenerated. See comparator/colors.ts. */
+  --comparator-series-1: #2a78d6;
+  --comparator-series-2: #008300;
+  --comparator-series-3: #e87ba4;
+  --comparator-series-4: #eda100;
+  --comparator-series-5: #1baf7a;
+  --comparator-series-6: #eb6834;
+  --comparator-series-7: #4a3aa7;
+  --comparator-series-8: #e34948;
   --radius: 0.75rem;
   --sidebar: oklch(0.99 0.002 264);
   --sidebar-foreground: oklch(0.17 0.006 264);
@@ -113,6 +124,14 @@
   --chart-3: oklch(0.76 0.14 75);
   --chart-4: oklch(0.68 0.17 305);
   --chart-5: oklch(0.68 0.18 25);
+  --comparator-series-1: #3987e5;
+  --comparator-series-2: #008300;
+  --comparator-series-3: #d55181;
+  --comparator-series-4: #c98500;
+  --comparator-series-5: #199e70;
+  --comparator-series-6: #d95926;
+  --comparator-series-7: #9085e9;
+  --comparator-series-8: #e66767;
   --sidebar: oklch(0.19 0.006 264);
   --sidebar-foreground: oklch(0.95 0.003 264);
   --sidebar-primary: oklch(0.68 0.16 258);

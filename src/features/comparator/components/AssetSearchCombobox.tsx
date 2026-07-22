@@ -3,27 +3,24 @@
 import { Loader2, Search } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-import type { AssetClass } from "@/generated/prisma/client"
-import { Input } from "@/components/ui/input"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { Input } from "@/components/ui/input"
+import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { searchCompaniesAction } from "@/features/portfolio/actions"
 import type { CompanySearchResult } from "@/features/portfolio/queries"
 
-interface CompanySearchComboboxProps {
-  /** Scopes the search to one category when set (the "Adicionar Investimento"
-   * dialog always sets it once a category is picked); omitted entirely
-   * searches every category, which `searchCompaniesAction`/`searchCompanies`
-   * already support. */
-  assetClass?: AssetClass
+interface AssetSearchComboboxProps {
   onSelect: (company: CompanySearchResult) => void
+  disabled?: boolean
+  disabledReason?: string
 }
 
-/// Autocomplete by ticker (PETR4) or company name (Petrobras) — the entry
-/// point for "Adicionar Investimento" once a category is picked. No shadcn
-/// Command component in this project's registry (Nova/Base UI preset
-/// doesn't ship one), so this is a small hand-rolled combobox instead of
-/// pulling in a new dependency for it.
-export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchComboboxProps) {
+/// Cross-category sibling of CompanySearchCombobox — same debounce/click-
+/// outside interaction shell, but genuinely different post-select behavior
+/// (append a chip here vs. replace a single field there) and it searches
+/// every category at once (assetClass left undefined), which
+/// searchCompaniesAction/searchCompanies already support unchanged.
+export function AssetSearchCombobox({ onSelect, disabled, disabledReason }: AssetSearchComboboxProps) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<CompanySearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -31,21 +28,14 @@ export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchCom
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Nothing to search — leave `results` as-is and let the empty query be
-    // handled at render time (displayResults below), rather than resetting
-    // state from inside the effect.
     if (query.trim().length === 0) {
       return
     }
 
-    // Standard debounced-fetch pattern — flip the loading flag before
-    // kicking off the timer/request, same as React's own data-fetching
-    // docs. The lint rule's "no setState in effect" default is too broad
-    // for this legitimate case.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true)
     const timeout = setTimeout(() => {
-      searchCompaniesAction(query, assetClass).then((found) => {
+      searchCompaniesAction(query).then((found) => {
         setResults(found)
         setIsLoading(false)
         setIsOpen(true)
@@ -53,7 +43,7 @@ export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchCom
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [query, assetClass])
+  }, [query])
 
   const displayResults = query.trim().length === 0 ? [] : results
 
@@ -85,9 +75,11 @@ export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchCom
             setIsOpen(true)
           }}
           onFocus={() => displayResults.length > 0 && setIsOpen(true)}
-          placeholder="Buscar por ticker (PETR4) ou nome (Petrobras)"
+          placeholder="Buscar por ticker, nome, empresa ou setor"
           className="pl-9"
           autoComplete="off"
+          disabled={disabled}
+          title={disabled ? disabledReason : undefined}
         />
         {isLoading && (
           <Loader2 className="absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -95,21 +87,27 @@ export function CompanySearchCombobox({ assetClass, onSelect }: CompanySearchCom
       </div>
 
       {isOpen && displayResults.length > 0 && (
-        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
-          {displayResults.map((company) => (
-            <button
-              key={company.id}
-              type="button"
-              onClick={() => handleSelect(company)}
-              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
-            >
-              <TickerBadge ticker={company.ticker} logoUrl={company.logoUrl} size="sm" />
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate font-medium">{company.ticker}</p>
-                <p className="truncate text-xs text-muted-foreground">{company.name}</p>
-              </div>
-            </button>
-          ))}
+        <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+          {displayResults.map((company) => {
+            const meta = getAssetCategoryMeta(company.assetClass)
+            return (
+              <button
+                key={company.id}
+                type="button"
+                onClick={() => handleSelect(company)}
+                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+              >
+                <TickerBadge ticker={company.ticker} logoUrl={company.logoUrl} size="sm" />
+                <div className="flex-1 overflow-hidden">
+                  <p className="truncate font-medium">{company.ticker}</p>
+                  <p className="truncate text-xs text-muted-foreground">{company.name}</p>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {meta.emoji} {meta.label}
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
 

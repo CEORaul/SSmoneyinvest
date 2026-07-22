@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { label: "FIIs", href: "/fiis" },
   { label: "ETFs", href: "/etfs" },
   { label: "Preços", href: "/precos" },
+  { label: "Comparar", href: "/comparar" },
 ]
 
 export interface NavbarUser {

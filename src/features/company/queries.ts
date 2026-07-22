@@ -82,13 +82,18 @@ export interface CompanyDetailDTO {
   etf: CompanyEtfFundamentals | null
 }
 
-const COMPANY_DETAIL_INCLUDE = { stock: true, fii: true, etf: true } as const
+/// Exported so batched multi-company queries (comparator) request the exact
+/// same shape toDetailDTO expects, rather than duplicating this literal.
+export const COMPANY_DETAIL_INCLUDE = { stock: true, fii: true, etf: true } as const
 
 function toDecimalOrNull(value: { toNumber(): number } | null | undefined): number | null {
   return value == null ? null : value.toNumber()
 }
 
-function toDetailDTO(
+/// Exported so src/features/comparator/queries.ts can map a batched
+/// findMany's rows through the exact same Decimal/BigInt serialization,
+/// instead of re-implementing it or calling this module N times.
+export function toDetailDTO(
   company: CompanyGetPayload<{ include: typeof COMPANY_DETAIL_INCLUDE }>
 ): CompanyDetailDTO {
   return {
@@ -436,6 +441,32 @@ export async function getSectorIndicatorAverage(
 
   const average = values.reduce((sum, value) => sum + value, 0) / values.length
   return { average, sampleSize: values.length }
+}
+
+/// General-purpose favorites listing — backs the comparator's "Favoritos"
+/// quick-select and (eventually) the still-empty /favoritos page. DY comes
+/// from the same batched trailing-yield helper every other list uses, never
+/// hardcoded to 0.
+export async function getFavoriteCompanies(profileId: string): Promise<CompanyListItem[]> {
+  const favorites = await prisma.favorite.findMany({
+    where: { profileId },
+    include: { company: true },
+    orderBy: { createdAt: "desc" },
+  })
+  if (favorites.length === 0) return []
+
+  const dividendYields = await getTrailingDividendYieldMap(
+    favorites.map((favorite) => ({ id: favorite.companyId, priceCents: favorite.company.priceCents }))
+  )
+
+  return favorites.map((favorite) => ({
+    ticker: favorite.company.ticker,
+    name: favorite.company.name,
+    logoUrl: favorite.company.logoUrl,
+    priceCents: favorite.company.priceCents,
+    changePct: Number(favorite.company.priceChangePct),
+    dividendYield: dividendYields.get(favorite.companyId) ?? 0,
+  }))
 }
 
 export async function isCompanyFavorited(profileId: string, companyId: string): Promise<boolean> {

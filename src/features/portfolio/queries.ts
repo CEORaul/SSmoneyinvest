@@ -210,9 +210,10 @@ const COMPANY_SEARCH_RESULT_SELECT = {
   priceSource: true,
 } as const
 
-/// Backs the autocomplete in "Adicionar Investimento" — search by ticker
-/// prefix or company name substring, optionally scoped to one category (the
-/// dialog always scopes it once a category is picked).
+/// Backs the autocomplete in "Adicionar Investimento" (ticker/name only,
+/// usually scoped to one category) and the comparator's cross-category
+/// search (adds sector/segment, `assetClass` left undefined) — one query
+/// serving both, never two near-duplicate search implementations.
 export async function searchCompanies(
   query: string,
   assetClass?: AssetClass,
@@ -227,6 +228,8 @@ export async function searchCompanies(
       OR: [
         { ticker: { startsWith: trimmed, mode: "insensitive" } },
         { name: { contains: trimmed, mode: "insensitive" } },
+        { sector: { contains: trimmed, mode: "insensitive" } },
+        { segment: { contains: trimmed, mode: "insensitive" } },
       ],
     },
     orderBy: { ticker: "asc" },

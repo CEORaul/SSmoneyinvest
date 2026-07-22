@@ -399,6 +399,10 @@ model ProviderHealth {
 enum AiContentKind {
   SUMMARY
   INDICATOR_EXPLANATION
+  /// Auto-generated "Resumo Executivo" on /comparar — see comparisonKey below.
+  COMPARISON_SUMMARY
+  /// "Analisar Comparação" button result on /comparar.
+  COMPARISON_ANALYSIS
 }
 
 enum AiQuestionType {
@@ -443,8 +447,14 @@ model AiContent {
   /// sourceHash mismatch is the primary invalidation path, this just caps
   /// how stale a genuinely-unchanged answer is allowed to get.
   expiresAt    DateTime?
+  /// Identifies a /comparar multi-company comparison (sorted, comma-joined
+  /// ticker list, e.g. "BBAS3,PETR4") for COMPARISON_SUMMARY/
+  /// COMPARISON_ANALYSIS rows — null for every single-company row.
+  /// companyId can't represent a set of companies, hence this separate
+  /// column rather than overloading companyId or assetClass.
+  comparisonKey String?
 
-  @@unique([companyId, kind, assetClass, indicatorKey, questionType])
+  @@unique([companyId, kind, assetClass, indicatorKey, questionType, comparisonKey], map: "ai_content_unique_key")
   @@index([companyId, kind])
   @@map("ai_content")
 }

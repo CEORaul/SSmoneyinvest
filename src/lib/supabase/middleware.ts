@@ -3,9 +3,12 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { getSupabaseEnv } from "@/lib/supabase/env"
 
-// Ações, FIIs, ETFs, Mercado, Empresa e Pesquisa são navegáveis sem login
-// (como no Investidor10) — só a área logada (dashboard/carteira/favoritos/
-// perfil/configurações) exige sessão.
+// Ações, FIIs, ETFs, Mercado, Empresa, Comparador e Pesquisa são navegáveis
+// sem login (como no Investidor10) — só a área logada (dashboard/carteira/
+// favoritos/perfil/configurações) exige sessão. Quick-selects and view
+// modes that need a portfolio (Minha Carteira, Maiores posições, Favoritos,
+// Valor investido/atual/Lucro) degrade to empty/disabled for an anonymous
+// visitor rather than the whole page requiring a session.
 //
 // PUBLIC_AUTH_PATHS: pages a logged-in user gets redirected away from (no
 // reason to see the login form again). /reset-password is deliberately
@@ -19,6 +22,7 @@ const PUBLIC_PREFIXES = [
   "/fiis",
   "/etfs",
   "/empresa",
+  "/comparar",
   "/reset-password",
 ]
 
