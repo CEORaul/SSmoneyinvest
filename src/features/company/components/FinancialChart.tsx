@@ -194,7 +194,12 @@ export function FinancialChart({
   // on subsequent tab switches, never on first render.
   const isFirstRender = useRef(true)
 
-  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+  // Clicking a legend chip isolates that one asset (hides every other
+  // series); clicking the same chip again — or any other chip while one is
+  // already isolated switches to the new one — clears the isolation and
+  // shows everyone again. Hover still just dims non-hovered lines without
+  // removing them, a separate, lighter-weight interaction from a click.
+  const [isolatedId, setIsolatedId] = useState<string | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
 
   const period = isComparisonMode ? (controlledPeriod ?? initialPeriod) : internalPeriod
@@ -227,17 +232,12 @@ export function FinancialChart({
     }
   }
 
-  const visibleSeries = (series ?? []).filter((s) => !hiddenSeries.has(s.companyId))
+  const visibleSeries = (series ?? []).filter((s) => isolatedId == null || s.companyId === isolatedId)
   const mergedRows = isComparisonMode ? mergeSeriesByDate(visibleSeries) : []
   const formatValue = valueFormatter ?? formatCurrencyCents
 
-  function toggleHidden(companyIdToToggle: string) {
-    setHiddenSeries((prev) => {
-      const next = new Set(prev)
-      if (next.has(companyIdToToggle)) next.delete(companyIdToToggle)
-      else next.add(companyIdToToggle)
-      return next
-    })
+  function handleLegendClick(companyIdClicked: string) {
+    setIsolatedId((current) => (current === companyIdClicked ? null : companyIdClicked))
   }
 
   const isEmpty = isComparisonMode ? mergedRows.length === 0 : points.length === 0
@@ -265,24 +265,30 @@ export function FinancialChart({
       {isComparisonMode && series.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {series.map((s) => {
-            const isHidden = hiddenSeries.has(s.companyId)
+            const isDimmed = isolatedId != null && s.companyId !== isolatedId
             return (
               <button
                 key={s.companyId}
                 type="button"
-                onClick={() => toggleHidden(s.companyId)}
+                onClick={() => handleLegendClick(s.companyId)}
                 onMouseEnter={() => setHighlightedId(s.companyId)}
                 onMouseLeave={() => setHighlightedId(null)}
+                title={
+                  isolatedId === s.companyId
+                    ? "Clique para mostrar todos novamente"
+                    : `Clique para ver somente ${s.ticker}`
+                }
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs transition-opacity",
-                  isHidden && "opacity-40"
+                  "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-opacity",
+                  isolatedId === s.companyId ? "border-primary" : "border-border",
+                  isDimmed && "opacity-40"
                 )}
               >
                 <span
                   className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: isHidden ? "var(--muted-foreground)" : s.color }}
+                  style={{ backgroundColor: s.color }}
                 />
-                <span className={cn(isHidden && "line-through")}>{s.ticker}</span>
+                <span>{s.ticker}</span>
                 {s.unavailableReason && (
                   <span className="text-muted-foreground">({s.unavailableReason})</span>
                 )}
@@ -338,6 +344,11 @@ export function FinancialChart({
                     strokeOpacity={highlightedId == null || highlightedId === s.companyId ? 1 : 0.25}
                     fill="transparent"
                     dot={false}
+                    // Shown on hover only (never at rest) — one dot per
+                    // visible line at whatever x the shared crosshair/
+                    // tooltip is on, so every asset's marker moves together
+                    // as the cursor moves across the chart.
+                    activeDot={{ r: 4, fill: s.color, stroke: "var(--background)", strokeWidth: 2 }}
                     // true, not false: each company's own real points can be
                     // sparser than others sharing this merged date axis (the
                     // data provider silently returns coarser-than-daily
