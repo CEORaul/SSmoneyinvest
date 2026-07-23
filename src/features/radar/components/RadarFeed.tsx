@@ -13,8 +13,14 @@ import {
 import Link from "next/link"
 import { useMemo, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { groupFeedByBucket } from "@/features/radar/insights"
 import type { RadarFeedCategory, RadarFeedItem, RadarFeedScope } from "@/features/radar/types"
@@ -111,42 +117,53 @@ export function RadarFeed({ items }: RadarFeedProps) {
     <Card>
       <CardHeader className="space-y-3">
         <CardTitle>Feed e Linha do Tempo</CardTitle>
-        <div className="flex flex-wrap gap-3">
-          <div className="flex flex-wrap gap-1">
-            {(Object.keys(PERIOD_LABELS) as PeriodFilter[]).map((key) => (
-              <Button
-                key={key}
-                variant={period === key ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setPeriod(key)}
-              >
-                {PERIOD_LABELS[key]}
-              </Button>
-            ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Período</span>
+            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
+              <SelectTrigger size="sm" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(PERIOD_LABELS) as PeriodFilter[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {PERIOD_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {(Object.keys(CATEGORY_LABELS) as CategoryFilter[]).map((key) => (
-              <Button
-                key={key}
-                variant={category === key ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setCategory(key)}
-              >
-                {CATEGORY_LABELS[key]}
-              </Button>
-            ))}
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Categoria</span>
+            <Select value={category} onValueChange={(v) => setCategory(v as CategoryFilter)}>
+              <SelectTrigger size="sm" className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(CATEGORY_LABELS) as CategoryFilter[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {CATEGORY_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {(Object.keys(SCOPE_LABELS) as ScopeFilter[]).map((key) => (
-              <Button
-                key={key}
-                variant={scope === key ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setScope(key)}
-              >
-                {SCOPE_LABELS[key]}
-              </Button>
-            ))}
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Escopo</span>
+            <Select value={scope} onValueChange={(v) => setScope(v as ScopeFilter)}>
+              <SelectTrigger size="sm" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SCOPE_LABELS) as ScopeFilter[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {SCOPE_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardHeader>
