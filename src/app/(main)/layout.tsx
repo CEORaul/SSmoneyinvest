@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { TrendingUp } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NavUserMenu } from "@/features/auth/components/NavUserMenu"
 import { requireUser } from "@/lib/auth/session"
@@ -26,6 +27,12 @@ export default async function MainLayout({
             SSmoney Invest
           </Link>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/radar" />}>
+              Radar
+            </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
+              Carteira
+            </Button>
             <ThemeToggle />
             <NavUserMenu
               fullName={profile.fullName}

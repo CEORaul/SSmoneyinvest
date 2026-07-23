@@ -28,12 +28,14 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  favorites         Favorite[]
-  portfolioEntries  PortfolioPosition[]
-  transactions      Transaction[]
-  preferences       UserPreferences?
-  searchLogs        SearchLog[]
-  targetAllocations TargetAllocation[]
+  favorites          Favorite[]
+  portfolioEntries   PortfolioPosition[]
+  transactions       Transaction[]
+  preferences        UserPreferences?
+  searchLogs         SearchLog[]
+  targetAllocations  TargetAllocation[]
+  aiContents         AiContent[]
+  radarNotifications RadarNotification[]
 
   @@map("profiles")
 }
@@ -193,6 +195,8 @@ model Company {
   quoteValidationAlerts  QuoteValidationAlert[]
   aiContent              AiContent[]
   searchLogs             SearchLog[]
+  radarEvents            RadarEvent[]
+  radarNotifications     RadarNotification[]
 
   @@index([assetClass])
   @@index([sector])
@@ -406,6 +410,9 @@ enum AiContentKind {
   COMPARISON_SUMMARY
   /// "Analisar Comparação" button result on /comparar.
   COMPARISON_ANALYSIS
+  /// "Radar do Dia"/"IA Financeira" on /radar — see profileId below, the
+  /// only AiContentKind that is ever profile-scoped instead of company-scoped.
+  RADAR_SUMMARY
 }
 
 enum AiQuestionType {
@@ -456,8 +463,13 @@ model AiContent {
   /// companyId can't represent a set of companies, hence this separate
   /// column rather than overloading companyId or assetClass.
   comparisonKey String?
+  /// Set only for RADAR_SUMMARY rows — a portfolio-level AI summary has no
+  /// company/comparison to key off, just the profile it was generated for.
+  /// Null for every pre-existing row (company/comparison-scoped content).
+  profileId String?
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@unique([companyId, kind, assetClass, indicatorKey, questionType, comparisonKey], map: "ai_content_unique_key")
+  @@unique([companyId, kind, assetClass, indicatorKey, questionType, comparisonKey, profileId], map: "ai_content_unique_key")
   @@index([companyId, kind])
   @@map("ai_content")
 }
@@ -615,4 +627,107 @@ model TargetAllocation {
 
   @@unique([profileId, assetClass])
   @@map("target_allocations")
+}
+
+// ─────────────────────────────────────────────────────────
+// Radar
+// ─────────────────────────────────────────────────────────
+
+/// The event taxonomy shared by RadarEvent.type and RadarNotification.type —
+/// one list, since a notification is just an event a user opted to be
+/// pushed about. EARNINGS/ASSEMBLY/IPO/TREASURY/NEWS have no populating
+/// sync yet (no earnings-calendar/news provider is wired up) — the enum
+/// values exist so /radar's "Próximos Eventos"/"Radar de Resultados"/
+/// "Notícias" sections and RadarEvent rows already have a real, stable
+/// category to slot into the day a real provider is added, instead of a
+/// schema change being required later.
+enum RadarType {
+  PRICE_MOVE
+  BUY
+  SELL
+  DIVIDEND
+  JCP
+  BONUS
+  SPLIT
+  REVERSE_SPLIT
+  EARNINGS
+  ASSEMBLY
+  IPO
+  TREASURY
+  NEWS
+  INDICATOR_CHANGE
+  ALERT
+}
+
+enum RadarPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// Lifecycle for both RadarEvent (draft a sync job wrote vs. shown on the
+/// page vs. superseded) and RadarNotification (queued vs. delivered vs.
+/// dismissed by the user) — same three stages read differently depending
+/// on which model it's attached to, documented on each field instead of
+/// forking into two near-identical enums.
+enum RadarStatus {
+  PENDING
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Prepared infrastructure for a future real event pipeline (a BRAPI
+/// Premium earnings-calendar sync, a news-provider sync, a corporate-action
+/// feed, etc.) — nothing writes to this table yet. Today's /radar page
+/// computes its feed live from Transaction/Company/PortfolioPosition (the
+/// same real, already-trustworthy tables every other Carteira feature
+/// reads), never from here — reading an empty RadarEvent table would just
+/// mean an empty feed, so the page doesn't depend on it existing yet. Once
+/// a real sync populates rows here (e.g. nightly earnings-calendar pull),
+/// src/features/radar/queries.ts's getRadarFeed can start merging them in
+/// without any UI rewrite — every feed card already renders from the same
+/// {type, title, description, occurredAt} shape this table stores.
+model RadarEvent {
+  id          String        @id @default(uuid())
+  type        RadarType
+  priority    RadarPriority @default(MEDIUM)
+  status      RadarStatus   @default(PUBLISHED)
+  companyId   String?
+  company     Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  /// Arbitrary type-specific payload (e.g. { amountPerShareCents } for a
+  /// DIVIDEND row, { fromCents, toCents } for an EARNINGS estimate) — kept
+  /// schemaless since the shape genuinely differs per RadarType and none of
+  /// it is queried on yet.
+  metadata    Json?
+  occurredAt  DateTime
+  createdAt   DateTime      @default(now())
+
+  @@index([type, occurredAt])
+  @@index([companyId, occurredAt])
+  @@map("radar_events")
+}
+
+/// Prepared infrastructure for future push/in-app notifications — no send
+/// mechanism exists yet (no email/push integration), see point 14 of the
+/// Radar spec ("ainda sem envio, somente arquitetura"). A future delivery
+/// job would create rows here per (profile, event) and a real send
+/// pipeline would flip status PENDING -> PUBLISHED once delivered.
+model RadarNotification {
+  id        String        @id @default(uuid())
+  profileId String
+  profile   Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type      RadarType
+  priority  RadarPriority @default(MEDIUM)
+  status    RadarStatus   @default(PENDING)
+  title     String
+  body      String?
+  companyId String?
+  company   Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@index([profileId, status, createdAt])
+  @@map("radar_notifications")
 }

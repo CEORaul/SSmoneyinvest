@@ -10,6 +10,11 @@ import { translateSector } from "@/features/company/sector-labels"
 import { prisma } from "@/lib/prisma"
 
 const CACHE_TTL_DAYS = 30
+// Radar's facts (daily price change, dividends this month...) already
+// change day to day, so sourceHash is the primary invalidation path here
+// too — this TTL just caps how long an unchanged summary (e.g. a weekend
+// with no new facts) is shown before a forced refresh.
+const RADAR_CACHE_TTL_HOURS = 20
 
 /// "O que é?"/"Como calcular?" answers don't depend on this specific
 /// company's numbers — they're cached once per (assetClass, indicatorKey)
@@ -253,6 +258,70 @@ export const aiContentService = {
           })
         : await prisma.aiContent.create({
             data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// "Radar do Dia" button + "IA Financeira" card on /radar — both read
+  /// this same cached row (one generation per profile per day), so
+  /// whichever surface the user hits first warms the cache for the other.
+  /// `facts` is built by the caller (radar/actions.ts) from data it already
+  /// fetched via getPortfolioSummary/computeTopMovers/etc — this function
+  /// never queries the portfolio itself.
+  async getOrGenerateRadarSummary(
+    profileId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "RADAR_SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: null,
+        profileId,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          `Escreva um "Radar do Dia" de 2 a 4 frases resumindo a carteira de investimentos do ` +
+          `usuário hoje, com base apenas nestes dados:\n${facts.join("\n")}`,
+        maxTokens: 300,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: {
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + RADAR_CACHE_TTL_HOURS * 60 * 60 * 1000),
+              generatedAt: new Date(),
+            },
+          })
+        : await prisma.aiContent.create({
+            data: {
+              ...cacheWhere,
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + RADAR_CACHE_TTL_HOURS * 60 * 60 * 1000),
+            },
           })
 
       return { text: saved.content, generatedAt: saved.generatedAt }
