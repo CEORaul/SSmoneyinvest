@@ -12,6 +12,7 @@ import {
 import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { translateSector } from "@/features/company/sector-labels"
 import type { AssetClass } from "@/generated/prisma/client"
 import { getMegaMenuDataAction, type SearchDropdownDefaults } from "@/features/search/actions"
 import type { MegaMenuData } from "@/features/search/queries"
@@ -126,7 +127,7 @@ export function MegaMenu({ assetClass, label, href, isAuthenticated, sharedDefau
                       key={sector}
                       className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"
                     >
-                      {sector}
+                      {translateSector(sector)}
                     </span>
                   ))}
                 </div>

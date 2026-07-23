@@ -1,3 +1,4 @@
+import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import type { PortfolioPositionRow, PortfolioTotals } from "@/features/portfolio/queries"
 
@@ -151,7 +152,7 @@ export function computeSectorAllocation(positions: PortfolioPositionRow[]): Allo
 
   return [...bySector.entries()]
     .map(([label, valueCents]) => ({
-      label,
+      label: translateSector(label),
       valueCents,
       pct: totalValueCents > 0 ? (valueCents / totalValueCents) * 100 : 0,
     }))

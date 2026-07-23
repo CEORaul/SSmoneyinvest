@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta, ASSET_CATEGORIES } from "@/features/portfolio/asset-category"
 import {
   getSearchDropdownDefaultsAction,
@@ -375,7 +376,7 @@ function ResultRow({
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.name}
-          {row.sector ? ` · ${row.sector}` : ""}
+          {row.sector ? ` · ${translateSector(row.sector)}` : ""}
         </p>
       </div>
       <div className="shrink-0 text-right">

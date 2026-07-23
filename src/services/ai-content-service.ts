@@ -6,6 +6,7 @@ import type { AiQuestionType } from "@/generated/prisma/client"
 import { AI_MODEL, generateText } from "@/lib/ai/gemini-client"
 import { getIndicatorsForAssetClass } from "@/features/company/indicators"
 import type { CompanyDetailDTO } from "@/features/company/queries"
+import { translateSector } from "@/features/company/sector-labels"
 import { prisma } from "@/lib/prisma"
 
 const CACHE_TTL_DAYS = 30
@@ -312,7 +313,7 @@ function buildComparisonFactsBlock(companies: CompanyDetailDTO[]): string {
 
 function buildKnownFactsList(dto: CompanyDetailDTO): string[] {
   const facts: string[] = []
-  if (dto.sector) facts.push(`Setor: ${dto.sector}`)
+  if (dto.sector) facts.push(`Setor: ${translateSector(dto.sector)}`)
   if (dto.segment) facts.push(`Segmento: ${dto.segment}`)
   facts.push(`Preço atual: R$ ${(dto.priceCents / 100).toFixed(2)}`)
   facts.push(`Variação: ${dto.priceChangePct.toFixed(2)}%`)
@@ -335,7 +336,8 @@ function buildIndicatorPrompt(input: {
   sector: string | null
   sectorAverage: { average: number; sampleSize: number } | null
 }): string | null {
-  const { definition, questionType, value, ticker, sector, sectorAverage } = input
+  const { definition, questionType, value, ticker, sectorAverage } = input
+  const sector = translateSector(input.sector)
 
   switch (questionType) {
     case "WHAT_IS":

@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { translateSector } from "@/features/company/sector-labels"
 import type { AssetClass } from "@/generated/prisma/client"
 
 export type SortOption =
@@ -92,7 +93,7 @@ export function FilterBar({ filters, onChange, categories, sectors }: FilterBarP
             <SelectItem value="all">Todos setores</SelectItem>
             {sectors.map((sector) => (
               <SelectItem key={sector} value={sector}>
-                {sector}
+                {translateSector(sector)}
               </SelectItem>
             ))}
           </SelectContent>

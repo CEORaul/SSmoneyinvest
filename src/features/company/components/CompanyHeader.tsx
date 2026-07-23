@@ -7,6 +7,7 @@ import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import type { TradeCompany } from "@/features/portfolio/components/TradeDialog"
 import type { CompanyDetailDTO } from "@/features/company/queries"
 import { CompanyHeaderActions } from "@/features/company/components/CompanyHeaderActions"
+import { translateSector } from "@/features/company/sector-labels"
 import { formatCompactNumber, formatCurrencyCents, formatCurrencyCentsCompact } from "@/utils/format"
 
 interface CompanyHeaderProps {
@@ -34,7 +35,7 @@ export function CompanyHeader({ dto, tradeCompany, initialFavorited, isAuthentic
             <p className="text-sm text-muted-foreground">{dto.name}</p>
             {(dto.sector || dto.segment) && (
               <p className="text-xs text-muted-foreground">
-                {[dto.sector, dto.segment].filter(Boolean).join(" · ")}
+                {[translateSector(dto.sector), dto.segment].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>

@@ -42,6 +42,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { toggleFavoriteAction } from "@/features/company/actions"
+import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { ExpandedPositionDetail } from "@/features/portfolio/components/ExpandedPositionDetail"
 import { Sparkline, type SparklinePoint } from "@/features/portfolio/components/Sparkline"
@@ -303,7 +304,9 @@ export function CategorySection({
                             <TooltipContent>Abrir página completa</TooltipContent>
                           </Tooltip>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{position.sector ?? "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {translateSector(position.sector) ?? "—"}
+                        </TableCell>
                         <TableCell>
                           <Sparkline points={points} isGain={isDailyGain} />
                         </TableCell>
