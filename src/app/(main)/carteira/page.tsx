@@ -6,6 +6,7 @@ import { AllocationCharts } from "@/features/portfolio/components/AllocationChar
 import { InsightsSection } from "@/features/portfolio/components/InsightsSection"
 import { PatrimonyEvolutionSection } from "@/features/portfolio/components/PatrimonyEvolutionSection"
 import { PortfolioBoard } from "@/features/portfolio/components/PortfolioBoard"
+import { PortfolioSubNav } from "@/features/portfolio/components/PortfolioSubNav"
 import { PortfolioSummaryCards } from "@/features/portfolio/components/PortfolioSummaryCards"
 import { PriceSyncStatus } from "@/features/portfolio/components/PriceSyncStatus"
 import { RebalancingSection } from "@/features/portfolio/components/RebalancingSection"
@@ -41,6 +42,7 @@ export default async function CarteiraPage() {
   if (positions.length === 0) {
     return (
       <div className="space-y-6">
+        <PortfolioSubNav />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
@@ -113,6 +115,7 @@ export default async function CarteiraPage() {
 
   return (
     <div className="space-y-6">
+      <PortfolioSubNav />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
