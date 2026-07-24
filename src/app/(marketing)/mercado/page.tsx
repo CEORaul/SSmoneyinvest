@@ -1,5 +1,9 @@
 import { TrendingUp } from "lucide-react"
 
+// Diagnostic touch: forcing a fresh commit so the deploy pipeline picks up
+// this route (it was missing from the last few Vercel builds' route table
+// despite being committed and present locally).
+
 import { GlobalSearch } from "@/features/search/components/GlobalSearch"
 import { getSearchDropdownDefaultsAction } from "@/features/search/actions"
 import { getAllSectors, searchMarketAssets } from "@/features/market/discovery-queries"
