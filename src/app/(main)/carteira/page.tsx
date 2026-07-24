@@ -42,10 +42,12 @@ export default async function CarteiraPage() {
   if (positions.length === 0) {
     return (
       <div className="space-y-6">
-        <PortfolioSubNav />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
+              <PortfolioSubNav />
+            </div>
             <p className="text-muted-foreground">
               Acompanhe suas posições, compras, vendas e proventos.
             </p>
@@ -115,10 +117,12 @@ export default async function CarteiraPage() {
 
   return (
     <div className="space-y-6">
-      <PortfolioSubNav />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
+            <PortfolioSubNav />
+          </div>
           <p className="text-muted-foreground">
             Acompanhe suas posições, compras, vendas e proventos.
           </p>
