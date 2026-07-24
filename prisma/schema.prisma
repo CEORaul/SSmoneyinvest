@@ -36,6 +36,7 @@ model Profile {
   targetAllocations  TargetAllocation[]
   aiContents         AiContent[]
   radarNotifications RadarNotification[]
+  savedMarketFilters SavedMarketFilter[]
 
   @@map("profiles")
 }
@@ -730,4 +731,26 @@ model RadarNotification {
 
   @@index([profileId, status, createdAt])
   @@map("radar_notifications")
+}
+
+// ─────────────────────────────────────────────────────────
+// Market discovery
+// ─────────────────────────────────────────────────────────
+
+/// A user's named filter/sort combination on /mercado ("Meus filtros") —
+/// applied client-side by rehydrating `filters` into the same shape
+/// src/features/market/discovery-types.ts's MarketFilters/MarketSortOption
+/// already use, never re-interpreted server-side. Kept schemaless (Json)
+/// since the filter shape is still evolving; nothing else joins against it.
+model SavedMarketFilter {
+  id        String   @id @default(uuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  filters   Json
+  sort      String?
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, name])
+  @@map("saved_market_filters")
 }
