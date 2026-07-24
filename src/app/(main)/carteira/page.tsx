@@ -6,7 +6,6 @@ import { AllocationCharts } from "@/features/portfolio/components/AllocationChar
 import { InsightsSection } from "@/features/portfolio/components/InsightsSection"
 import { PatrimonyEvolutionSection } from "@/features/portfolio/components/PatrimonyEvolutionSection"
 import { PortfolioBoard } from "@/features/portfolio/components/PortfolioBoard"
-import { PortfolioSubNav } from "@/features/portfolio/components/PortfolioSubNav"
 import { PortfolioSummaryCards } from "@/features/portfolio/components/PortfolioSummaryCards"
 import { PriceSyncStatus } from "@/features/portfolio/components/PriceSyncStatus"
 import { RebalancingSection } from "@/features/portfolio/components/RebalancingSection"
@@ -44,10 +43,7 @@ export default async function CarteiraPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
-              <PortfolioSubNav />
-            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
             <p className="text-muted-foreground">
               Acompanhe suas posições, compras, vendas e proventos.
             </p>
@@ -119,10 +115,7 @@ export default async function CarteiraPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
-            <PortfolioSubNav />
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Carteira</h1>
           <p className="text-muted-foreground">
             Acompanhe suas posições, compras, vendas e proventos.
           </p>

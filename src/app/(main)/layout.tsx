@@ -27,6 +27,15 @@ export default async function MainLayout({
             SSmoney Invest
           </Link>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/mercado" />}>
+              Mercado
+            </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/radar" />}>
+              Radar
+            </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/comparar" />}>
+              Comparar
+            </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
               Carteira
             </Button>
