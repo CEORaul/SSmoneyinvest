@@ -30,7 +30,23 @@ export async function syncCompanyDetails() {
     let failed = 0
 
     for (const company of companies) {
-      const outcome = await marketDataService.refreshCompanyDetails(company.ticker)
+      // Ask for as much history as the provider is willing to give — "max"
+      // instead of the default "1y". BRAPI's plan tier caps most tickers to
+      // a 1d/5d/1mo/3mo range no matter what's requested here (confirmed
+      // live via BRAPI's own rejection message: "O range ... não está
+      // disponível no seu plano"), so this changes nothing for them — the
+      // existing fallback in brapi-provider.ts already handles it. It only
+      // matters for the handful of tickers BRAPI doesn't restrict (its free
+      // sandbox symbols, e.g. PETR4/VALE3), which were previously stuck at
+      // 1 year of history purely because we never asked for more — verified
+      // live that "max" gets 26 years of real daily data for those.
+      // Trade-off, documented rather than hidden: if BRAPI is ever fully
+      // down for a ticker and this falls over to Yahoo, Yahoo's endpoint
+      // silently returns monthly (not daily) candles specifically for a
+      // "max" request (confirmed live) — real data, just coarser for that
+      // one rare path; every other period (1M/6M/1A/5A) keeps Yahoo's daily
+      // granularity, and 1A/5A on BRAPI are unaffected either way.
+      const outcome = await marketDataService.refreshCompanyDetails(company.ticker, "max")
       if (outcome.ok) {
         processed += 1
       } else {

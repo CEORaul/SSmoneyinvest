@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FormField } from "@/components/shared/FormField"
+import { PasswordInput } from "@/components/shared/PasswordInput"
 import { AuthDivider } from "@/features/auth/components/AuthDivider"
 import { GoogleSignInButton } from "@/features/auth/components/GoogleSignInButton"
 import { signUp } from "@/features/auth/actions"
@@ -53,9 +54,8 @@ export function RegisterForm() {
           <Input id="email" type="email" autoComplete="email" {...register("email")} />
         </FormField>
         <FormField label="Senha" htmlFor="password" error={errors.password?.message}>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             {...register("password")}
           />
@@ -65,9 +65,8 @@ export function RegisterForm() {
           htmlFor="confirmPassword"
           error={errors.confirmPassword?.message}
         >
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             autoComplete="new-password"
             {...register("confirmPassword")}
           />

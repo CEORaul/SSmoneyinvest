@@ -6,8 +6,8 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { FormField } from "@/components/shared/FormField"
+import { PasswordInput } from "@/components/shared/PasswordInput"
 import { updatePassword } from "@/features/auth/actions"
 import { resetPasswordSchema, type ResetPasswordInput } from "@/features/auth/schemas"
 
@@ -41,9 +41,8 @@ export function ChangePasswordForm() {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="Nova senha" htmlFor="new-password" error={errors.password?.message}>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               autoComplete="new-password"
               {...register("password")}
             />
@@ -53,9 +52,8 @@ export function ChangePasswordForm() {
             htmlFor="new-confirm-password"
             error={errors.confirmPassword?.message}
           >
-            <Input
+            <PasswordInput
               id="new-confirm-password"
-              type="password"
               autoComplete="new-password"
               {...register("confirmPassword")}
             />

@@ -228,79 +228,89 @@ export const marketDataService = {
     const { description, sector, ...stockFundamentals } = details!.stock ?? {}
 
     try {
-      await prisma.$transaction(async (tx) => {
-        await tx.company.update({
-          where: { id: company.id },
-          data: {
-            ...(details!.priceCents != null ? { priceCents: details!.priceCents } : {}),
-            ...(details!.priceChangePct != null
-              ? { priceChangePct: details!.priceChangePct }
-              : {}),
-            ...(details!.dayHighCents != null ? { dayHighCents: details!.dayHighCents } : {}),
-            ...(details!.dayLowCents != null ? { dayLowCents: details!.dayLowCents } : {}),
-            ...(details!.fiftyTwoWeekHighCents != null
-              ? { fiftyTwoWeekHighCents: details!.fiftyTwoWeekHighCents }
-              : {}),
-            ...(details!.fiftyTwoWeekLowCents != null
-              ? { fiftyTwoWeekLowCents: details!.fiftyTwoWeekLowCents }
-              : {}),
-            ...(details!.volume != null ? { volume: details!.volume } : {}),
-            ...(description != null ? { description } : {}),
-            ...(sector != null ? { sector } : {}),
-            detailsSyncedAt: new Date(),
-            lastQuoteProvider: details!.source,
-            lastQuoteAt: new Date(),
-            lastQuoteLatencyMs: latencyMs,
-            lastQuoteAttempts: attempts,
-            lastQuoteStatus: "OK",
-          },
-        })
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.company.update({
+            where: { id: company.id },
+            data: {
+              ...(details!.priceCents != null ? { priceCents: details!.priceCents } : {}),
+              ...(details!.priceChangePct != null
+                ? { priceChangePct: details!.priceChangePct }
+                : {}),
+              ...(details!.dayHighCents != null ? { dayHighCents: details!.dayHighCents } : {}),
+              ...(details!.dayLowCents != null ? { dayLowCents: details!.dayLowCents } : {}),
+              ...(details!.fiftyTwoWeekHighCents != null
+                ? { fiftyTwoWeekHighCents: details!.fiftyTwoWeekHighCents }
+                : {}),
+              ...(details!.fiftyTwoWeekLowCents != null
+                ? { fiftyTwoWeekLowCents: details!.fiftyTwoWeekLowCents }
+                : {}),
+              ...(details!.volume != null ? { volume: details!.volume } : {}),
+              ...(description != null ? { description } : {}),
+              ...(sector != null ? { sector } : {}),
+              detailsSyncedAt: new Date(),
+              lastQuoteProvider: details!.source,
+              lastQuoteAt: new Date(),
+              lastQuoteLatencyMs: latencyMs,
+              lastQuoteAttempts: attempts,
+              lastQuoteStatus: "OK",
+            },
+          })
 
-        // BDRs get the same Stock-shaped fundamentals row as ordinary
-        // stocks — there was previously no Stock row for BDRs at all,
-        // silently leaving every indicator card empty for that whole
-        // category regardless of what the provider actually returned.
-        if (company.assetClass === "STOCK" || company.assetClass === "BDR") {
-          const stockFields = Object.fromEntries(
-            Object.entries({
-              priceToEarnings: details!.priceToEarnings,
-              ...stockFundamentals,
-            }).filter(([, value]) => value != null)
-          )
-          if (Object.keys(stockFields).length > 0) {
-            await tx.stock.upsert({
-              where: { companyId: company.id },
-              update: stockFields,
-              create: { companyId: company.id, ...stockFields },
+          // BDRs get the same Stock-shaped fundamentals row as ordinary
+          // stocks — there was previously no Stock row for BDRs at all,
+          // silently leaving every indicator card empty for that whole
+          // category regardless of what the provider actually returned.
+          if (company.assetClass === "STOCK" || company.assetClass === "BDR") {
+            const stockFields = Object.fromEntries(
+              Object.entries({
+                priceToEarnings: details!.priceToEarnings,
+                ...stockFundamentals,
+              }).filter(([, value]) => value != null)
+            )
+            if (Object.keys(stockFields).length > 0) {
+              await tx.stock.upsert({
+                where: { companyId: company.id },
+                update: stockFields,
+                create: { companyId: company.id, ...stockFields },
+              })
+            }
+          }
+
+          if (details!.priceHistory.length > 0) {
+            await tx.priceHistoryPoint.createMany({
+              data: details!.priceHistory.map((point) => ({
+                companyId: company.id,
+                date: point.date,
+                closeCents: point.closeCents,
+                volume: point.volume,
+              })),
+              skipDuplicates: true,
             })
           }
-        }
 
-        if (details!.priceHistory.length > 0) {
-          await tx.priceHistoryPoint.createMany({
-            data: details!.priceHistory.map((point) => ({
-              companyId: company.id,
-              date: point.date,
-              closeCents: point.closeCents,
-              volume: point.volume,
-            })),
-            skipDuplicates: true,
-          })
-        }
-
-        if (details!.dividends.length > 0) {
-          await tx.dividendPayment.createMany({
-            data: details!.dividends.map((dividend) => ({
-              companyId: company.id,
-              type: dividend.type,
-              amountPerShare: dividend.amountPerShare,
-              exDate: dividend.exDate,
-              paymentDate: dividend.paymentDate,
-            })),
-            skipDuplicates: true,
-          })
-        }
-      })
+          if (details!.dividends.length > 0) {
+            await tx.dividendPayment.createMany({
+              data: details!.dividends.map((dividend) => ({
+                companyId: company.id,
+                type: dividend.type,
+                amountPerShare: dividend.amountPerShare,
+                exDate: dividend.exDate,
+                paymentDate: dividend.paymentDate,
+              })),
+              skipDuplicates: true,
+            })
+          }
+        },
+        // Prisma's 5s default timeout was fine while every sync topped out
+        // around 250 rows (the old "1y" default); requesting "max" for a
+        // company with decades of history (see sync-company-details.ts) can
+        // mean a 6,000+ row createMany, which measured ~5.9s under load —
+        // confirmed live this genuinely timed out at the default before
+        // this change. 30s gives real headroom without masking an actually
+        // stuck transaction.
+        { timeout: 30_000 }
+      )
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       await this.stampDetailsAttempt(company.id)

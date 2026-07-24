@@ -6,8 +6,8 @@ import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { FormField } from "@/components/shared/FormField"
+import { PasswordInput } from "@/components/shared/PasswordInput"
 import { updatePassword } from "@/features/auth/actions"
 import { resetPasswordSchema, type ResetPasswordInput } from "@/features/auth/schemas"
 
@@ -32,9 +32,8 @@ export function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <FormField label="Nova senha" htmlFor="password" error={errors.password?.message}>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           {...register("password")}
         />
@@ -44,9 +43,8 @@ export function ResetPasswordForm() {
         htmlFor="confirmPassword"
         error={errors.confirmPassword?.message}
       >
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           autoComplete="new-password"
           {...register("confirmPassword")}
         />
