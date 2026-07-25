@@ -139,9 +139,6 @@ export function Navbar({ user }: NavbarProps) {
           <ThemeToggle />
           {user ? (
             <>
-              <Button variant="ghost" nativeButton={false} render={<Link href="/alertas" />}>
-                Alertas
-              </Button>
               <Button variant="outline" nativeButton={false} render={<Link href="/carteira" />}>
                 Carteira
               </Button>
@@ -232,12 +229,6 @@ export function Navbar({ user }: NavbarProps) {
                 )}
                 {user && (
                   <div className="flex flex-col gap-2 pt-2">
-                    <SheetClose
-                      render={<Link href="/alertas" />}
-                      className={buttonVariants({ variant: "outline" })}
-                    >
-                      Alertas
-                    </SheetClose>
                     <SheetClose
                       render={<Link href="/carteira" />}
                       className={buttonVariants({})}
