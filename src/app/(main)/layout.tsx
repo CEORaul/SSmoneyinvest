@@ -37,9 +37,6 @@ export default async function MainLayout({
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/comparar" />}>
               Comparar
             </Button>
-            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/alertas" />}>
-              Alertas
-            </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
               Carteira
             </Button>
