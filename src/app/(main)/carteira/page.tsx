@@ -1,8 +1,6 @@
-import { Bell, PackageOpen } from "lucide-react"
-import Link from "next/link"
+import { PackageOpen } from "lucide-react"
 import { Suspense } from "react"
 
-import { Button } from "@/components/ui/button"
 import { AddInvestmentButton } from "@/features/portfolio/components/AddInvestmentButton"
 import { AllocationCharts } from "@/features/portfolio/components/AllocationCharts"
 import { InsightsSection } from "@/features/portfolio/components/InsightsSection"
@@ -53,13 +51,7 @@ export default async function CarteiraPage() {
               <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" nativeButton={false} render={<Link href="/alertas" />}>
-              <Bell className="size-4" />
-              Alertas
-            </Button>
-            <AddInvestmentButton />
-          </div>
+          <AddInvestmentButton />
         </div>
         <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border py-20 text-center">
           <div className="flex size-14 items-center justify-center rounded-full bg-muted">
@@ -131,13 +123,7 @@ export default async function CarteiraPage() {
             <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" nativeButton={false} render={<Link href="/alertas" />}>
-            <Bell className="size-4" />
-            Alertas
-          </Button>
-          <AddInvestmentButton />
-        </div>
+        <AddInvestmentButton />
       </div>
 
       <PortfolioSummaryCards totals={totals} />
