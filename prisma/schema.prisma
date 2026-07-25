@@ -37,6 +37,8 @@ model Profile {
   aiContents         AiContent[]
   radarNotifications RadarNotification[]
   savedMarketFilters SavedMarketFilter[]
+  priceAlerts        PriceAlert[]
+  alertNotifications AlertNotification[]
 
   @@map("profiles")
 }
@@ -198,6 +200,8 @@ model Company {
   searchLogs             SearchLog[]
   radarEvents            RadarEvent[]
   radarNotifications     RadarNotification[]
+  priceAlerts            PriceAlert[]
+  alertNotifications     AlertNotification[]
 
   @@index([assetClass])
   @@index([sector])
@@ -753,4 +757,94 @@ model SavedMarketFilter {
 
   @@unique([profileId, name])
   @@map("saved_market_filters")
+}
+
+// ─────────────────────────────────────────────────────────
+// Price alerts
+// ─────────────────────────────────────────────────────────
+
+/// The condition an alert watches. Only PRICE is implemented today — every
+/// value listed in the roadmap (dividend yield, P/L, P/VP, ROE, volume,
+/// market cap, resultado trimestral, bonificação, grupamento, desdobramento,
+/// notícias, variação percentual) can be added later as a new enum member
+/// without touching PriceAlert's existing rows: each new type would pair
+/// with its own nullable column (e.g. targetPercent for a % alert,
+/// indicatorKey for an indicator alert) rather than repurposing
+/// targetPriceCents, so PRICE alerts are never affected by the addition.
+enum AlertType {
+  PRICE
+}
+
+/// Which side of targetPriceCents triggers the alert.
+enum AlertDirection {
+  ABOVE
+  BELOW
+}
+
+/// PAUSED and CANCELED are both non-firing but distinct on purpose: a paused
+/// alert is expected to come back (the "Reativar" action returns it to
+/// ACTIVE), a canceled one is not resurrected — only recreated.
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  PAUSED
+  CANCELED
+}
+
+/// A user-configured watch on one Company's price. Checked by
+/// checkPriceAlertsForCompany() every time a sync writes a new priceCents
+/// for that company — never polled against the provider directly, and never
+/// re-fires while status stays TRIGGERED (the query that finds alerts to
+/// check only looks at status ACTIVE), matching the "não disparar
+/// repetidamente" requirement without needing separate crossing-history
+/// bookkeeping.
+model PriceAlert {
+  id                   String          @id @default(uuid())
+  profileId            String
+  profile              Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId            String
+  company              Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type                 AlertType       @default(PRICE)
+  direction            AlertDirection
+  targetPriceCents     Int
+  status               AlertStatus     @default(ACTIVE)
+  triggeredAt          DateTime?
+  triggeredPriceCents  Int?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  notifications        AlertNotification[]
+
+  @@index([profileId, status, createdAt])
+  @@index([companyId, status, direction])
+  @@map("price_alerts")
+}
+
+enum AlertNotificationStatus {
+  UNREAD
+  READ
+}
+
+/// One row per firing of a PriceAlert — the "disparo" history and the
+/// backing data for the notification bell. Deliberately a dedicated table
+/// rather than a repurposed RadarNotification: that table's shape is tied to
+/// RadarType/RadarPriority semantics for portfolio/market events, while this
+/// one is scoped to price-alert crossings and carries the exact
+/// target/triggered price pair the bell UI needs to render without a join
+/// back to PriceAlert (which may have since been edited or deleted).
+model AlertNotification {
+  id                  String                   @id @default(uuid())
+  profileId           String
+  profile             Profile                  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  alertId             String
+  alert               PriceAlert               @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  direction            AlertDirection
+  targetPriceCents     Int
+  triggeredPriceCents  Int
+  status              AlertNotificationStatus  @default(UNREAD)
+  createdAt           DateTime                 @default(now())
+
+  @@index([profileId, status, createdAt])
+  @@map("alert_notifications")
 }

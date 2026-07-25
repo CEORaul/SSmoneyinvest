@@ -4,6 +4,7 @@ import { TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NavUserMenu } from "@/features/auth/components/NavUserMenu"
+import { NotificationBell } from "@/features/alerts/components/NotificationBell"
 import { requireUser } from "@/lib/auth/session"
 
 // Intentionally minimal — no sidebar nav yet. The full authenticated shell
@@ -36,9 +37,13 @@ export default async function MainLayout({
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/comparar" />}>
               Comparar
             </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/alertas" />}>
+              Alertas
+            </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
               Carteira
             </Button>
+            <NotificationBell />
             <ThemeToggle />
             <NavUserMenu
               fullName={profile.fullName}

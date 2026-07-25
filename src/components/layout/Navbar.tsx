@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/shared/ThemeToggle"
 import { NavUserMenu } from "@/features/auth/components/NavUserMenu"
+import { NotificationBell } from "@/features/alerts/components/NotificationBell"
 import { GlobalSearch } from "@/features/search/components/GlobalSearch"
 import { MegaMenu } from "@/features/search/components/MegaMenu"
 import { getSearchDropdownDefaultsAction, type SearchDropdownDefaults } from "@/features/search/actions"
@@ -138,9 +139,13 @@ export function Navbar({ user }: NavbarProps) {
           <ThemeToggle />
           {user ? (
             <>
+              <Button variant="ghost" nativeButton={false} render={<Link href="/alertas" />}>
+                Alertas
+              </Button>
               <Button variant="outline" nativeButton={false} render={<Link href="/carteira" />}>
                 Carteira
               </Button>
+              <NotificationBell />
               <NavUserMenu
                 fullName={user.fullName}
                 email={user.email}
@@ -168,6 +173,7 @@ export function Navbar({ user }: NavbarProps) {
           >
             <Search className="size-4.5" />
           </Button>
+          {user && <NotificationBell />}
           {user && (
             <NavUserMenu
               fullName={user.fullName}
@@ -226,6 +232,12 @@ export function Navbar({ user }: NavbarProps) {
                 )}
                 {user && (
                   <div className="flex flex-col gap-2 pt-2">
+                    <SheetClose
+                      render={<Link href="/alertas" />}
+                      className={buttonVariants({ variant: "outline" })}
+                    >
+                      Alertas
+                    </SheetClose>
                     <SheetClose
                       render={<Link href="/carteira" />}
                       className={buttonVariants({})}
