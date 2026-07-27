@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { checkPriceAlertsForCompany } from "@/features/alerts/check-alerts"
+import { AlertService } from "@/features/alerts/alert-service"
 import {
   findActiveDuplicateAlert,
   getAlertsForProfile,
@@ -32,7 +32,10 @@ export async function createAlertAction(input: {
   const profile = await requireUser()
   const { companyId, direction, targetPriceCents } = parsed.data
 
-  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { id: true, priceCents: true } })
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { id: true, ticker: true, priceCents: true },
+  })
   if (!company) return { ok: false, error: "Ativo não encontrado." }
 
   const duplicate = await findActiveDuplicateAlert(profile.id, companyId, direction, targetPriceCents)
@@ -42,10 +45,14 @@ export async function createAlertAction(input: {
     const alert = await prisma.priceAlert.create({
       data: { profileId: profile.id, companyId, direction, targetPriceCents },
     })
+    console.info(
+      `[AlertService] alerta criado id=${alert.id} profileId=${profile.id} ticker=${company.ticker} ` +
+        `direction=${direction} target=${targetPriceCents}`
+    )
     // The target may already be past the current price at creation time
     // (e.g. "PETR4 abaixo de R$ 40" when it's already at R$ 35) — check
     // immediately so the user isn't left waiting for the next sync.
-    await checkPriceAlertsForCompany(alert.companyId, company.priceCents)
+    await AlertService.checkAlertsForTicker({ ticker: company.ticker, companyId: alert.companyId, priceCents: company.priceCents })
   } catch {
     return { ok: false, error: "Não foi possível criar o alerta." }
   }
@@ -75,7 +82,10 @@ export async function updateAlertAction(input: {
     return { ok: false, error: "Você já tem um alerta idêntico para este ativo." }
   }
 
-  const company = await prisma.company.findUnique({ where: { id: existing.companyId }, select: { priceCents: true } })
+  const company = await prisma.company.findUnique({
+    where: { id: existing.companyId },
+    select: { ticker: true, priceCents: true },
+  })
 
   try {
     await prisma.priceAlert.update({
@@ -84,7 +94,13 @@ export async function updateAlertAction(input: {
       // with a new target is meant to watch again, not stay dormant.
       data: { direction, targetPriceCents, status: "ACTIVE", triggeredAt: null, triggeredPriceCents: null },
     })
-    if (company) await checkPriceAlertsForCompany(existing.companyId, company.priceCents)
+    if (company) {
+      await AlertService.checkAlertsForTicker({
+        ticker: company.ticker,
+        companyId: existing.companyId,
+        priceCents: company.priceCents,
+      })
+    }
   } catch {
     return { ok: false, error: "Não foi possível atualizar o alerta." }
   }
@@ -96,7 +112,8 @@ export async function updateAlertAction(input: {
 async function setAlertStatus(
   id: string,
   status: "ACTIVE" | "PAUSED" | "CANCELED",
-  resetTrigger: boolean
+  resetTrigger: boolean,
+  logLabel: "alerta pausado" | "alerta reativado" | "alerta excluído"
 ): Promise<AlertActionResult> {
   const profile = await requireUser()
   const result = await prisma.priceAlert.updateMany({
@@ -107,12 +124,13 @@ async function setAlertStatus(
   })
   if (result.count === 0) return { ok: false, error: "Alerta não encontrado." }
 
+  console.info(`[AlertService] ${logLabel} id=${id} profileId=${profile.id}`)
   revalidatePath("/alertas")
   return { ok: true }
 }
 
 export async function pauseAlertAction(id: string): Promise<AlertActionResult> {
-  return setAlertStatus(id, "PAUSED", false)
+  return setAlertStatus(id, "PAUSED", false, "alerta pausado")
 }
 
 export async function resumeAlertAction(id: string): Promise<AlertActionResult> {
@@ -121,10 +139,19 @@ export async function resumeAlertAction(id: string): Promise<AlertActionResult> 
     where: { id, profileId: profile.id },
     select: { companyId: true },
   })
-  const result = await setAlertStatus(id, "ACTIVE", true)
+  const result = await setAlertStatus(id, "ACTIVE", true, "alerta reativado")
   if (result.ok && alert) {
-    const company = await prisma.company.findUnique({ where: { id: alert.companyId }, select: { priceCents: true } })
-    if (company) await checkPriceAlertsForCompany(alert.companyId, company.priceCents)
+    const company = await prisma.company.findUnique({
+      where: { id: alert.companyId },
+      select: { ticker: true, priceCents: true },
+    })
+    if (company) {
+      await AlertService.checkAlertsForTicker({
+        ticker: company.ticker,
+        companyId: alert.companyId,
+        priceCents: company.priceCents,
+      })
+    }
   }
   return result
 }
@@ -134,7 +161,7 @@ export async function resumeAlertAction(id: string): Promise<AlertActionResult> 
 /// PriceAlert delete and would otherwise wipe the user's notification
 /// history for something they already got notified about.
 export async function deleteAlertAction(id: string): Promise<AlertActionResult> {
-  return setAlertStatus(id, "CANCELED", false)
+  return setAlertStatus(id, "CANCELED", false, "alerta excluído")
 }
 
 export async function getUnreadNotificationCountAction(): Promise<number> {

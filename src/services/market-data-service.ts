@@ -1,6 +1,6 @@
 import "server-only"
 
-import { checkPriceAlertsForCompany } from "@/features/alerts/check-alerts"
+import { AlertService } from "@/features/alerts/alert-service"
 import { getMarketDataProvider } from "@/lib/market-data"
 import { ProviderManager } from "@/lib/market-data/provider-manager"
 import type { CompanyDetails, PriceRange } from "@/lib/market-data/types"
@@ -9,9 +9,9 @@ import { prisma } from "@/lib/prisma"
 
 /// Alert-checking must never take down a price sync — a bug in the alerts
 /// feature is not a reason to lose an otherwise-successful quote update.
-async function checkAlertsSafely(companyId: string, priceCents: number): Promise<void> {
+async function checkAlertsSafely(ticker: string, companyId: string, priceCents: number): Promise<void> {
   try {
-    await checkPriceAlertsForCompany(companyId, priceCents)
+    await AlertService.checkAlertsForTicker({ ticker, companyId, priceCents })
   } catch {
     // Swallowed on purpose — see the doc comment above.
   }
@@ -110,7 +110,7 @@ export const marketDataService = {
       for (const outcome of outcomes) {
         if (outcome.status === "fulfilled") {
           result.processed += 1
-          alertChecks.push(checkAlertsSafely(outcome.value.id, outcome.value.priceCents))
+          alertChecks.push(checkAlertsSafely(outcome.value.ticker, outcome.value.id, outcome.value.priceCents))
         } else {
           result.failed += 1
           result.errors.push(String(outcome.reason))
@@ -331,7 +331,7 @@ export const marketDataService = {
       return { ok: false, reason }
     }
 
-    await checkAlertsSafely(company.id, details.priceCents ?? company.priceCents)
+    await checkAlertsSafely(ticker, company.id, details.priceCents ?? company.priceCents)
 
     return { ok: true, source: details.source }
   },

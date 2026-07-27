@@ -5,7 +5,14 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import {
   getRecentNotificationsAction,
@@ -20,6 +27,9 @@ import { formatCurrencyCents, formatRelativeTime } from "@/utils/format"
 // subscription without changing anything that reads unreadCount/notifications.
 const POLL_INTERVAL_MS = 45_000
 
+/// The Central de Notificações — a side panel (not a compact dropdown), per
+/// spec: click the bell, a panel slides in from the side listing every
+/// recent alert firing, each linking straight to the asset.
 export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<AlertNotificationRow[]>([])
@@ -53,29 +63,30 @@ export function NotificationBell() {
   }
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Notificações" className="relative" />}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetTrigger
+        render={<Button variant="ghost" size="icon" aria-label="Notificações" className="relative" />}
+      >
         <Bell className="size-4.5" />
         {unreadCount > 0 && (
           <span className="absolute top-1.5 right-1.5 flex size-2 rounded-full bg-loss" aria-hidden />
         )}
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 gap-0 p-0">
-        <div className="border-b border-border px-3 py-2.5">
-          <p className="text-sm font-medium">Notificações</p>
-        </div>
-        <div className="max-h-96 overflow-y-auto">
+      </SheetTrigger>
+      <SheetContent side="right" className="w-full sm:max-w-sm">
+        <SheetHeader>
+          <SheetTitle>Notificações</SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto">
           {!loaded ? (
             <div className="p-4 text-sm text-muted-foreground">Carregando...</div>
           ) : notifications.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma notificação ainda.</div>
           ) : (
             notifications.map((notification) => (
-              <Link
+              <SheetClose
                 key={notification.id}
-                href={`/empresa/${notification.ticker}`}
-                onClick={() => setOpen(false)}
-                className="flex items-start gap-3 border-b border-border px-3 py-3 last:border-0 hover:bg-accent/50"
+                render={<Link href={`/empresa/${notification.ticker}`} />}
+                className="flex items-start gap-3 border-b border-border px-4 py-3 last:border-0 hover:bg-accent/50"
               >
                 <TickerBadge ticker={notification.ticker} logoUrl={notification.logoUrl} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -90,20 +101,19 @@ export function NotificationBell() {
                     {formatRelativeTime(new Date(notification.createdAt))}
                   </p>
                 </div>
-              </Link>
+              </SheetClose>
             ))
           )}
         </div>
-        <div className="border-t border-border p-1.5">
-          <Link
-            href="/alertas"
-            onClick={() => setOpen(false)}
-            className="block rounded-md px-2 py-1.5 text-center text-xs font-medium text-primary hover:bg-accent"
+        <div className="border-t border-border p-3">
+          <SheetClose
+            render={<Link href="/alertas" />}
+            className="block rounded-md px-2 py-1.5 text-center text-sm font-medium text-primary hover:bg-accent"
           >
             Ver todos os alertas
-          </Link>
+          </SheetClose>
         </div>
-      </PopoverContent>
-    </Popover>
+      </SheetContent>
+    </Sheet>
   )
 }
