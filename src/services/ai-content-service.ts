@@ -15,6 +15,11 @@ const CACHE_TTL_DAYS = 30
 // too — this TTL just caps how long an unchanged summary (e.g. a weekend
 // with no new facts) is shown before a forced refresh.
 const RADAR_CACHE_TTL_HOURS = 20
+// Portfolio composition (allocation, sectors, concentration) changes less
+// often than daily prices — sourceHash still invalidates immediately on
+// any real change (a buy/sell, a new position), this just caps staleness
+// for an otherwise-unchanged portfolio.
+const SCORE_CACHE_TTL_HOURS = 24
 
 /// "O que é?"/"Como calcular?" answers don't depend on this specific
 /// company's numbers — they're cached once per (assetClass, indicatorKey)
@@ -321,6 +326,141 @@ export const aiContentService = {
               model: AI_MODEL,
               sourceHash,
               expiresAt: new Date(Date.now() + RADAR_CACHE_TTL_HOURS * 60 * 60 * 1000),
+            },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// Short "Resumo da IA" under the score gauge on /score (2-3 frases) —
+  /// never a buy/sell recommendation (enforced both by SYSTEM_PERSONA and
+  /// the explicit instruction below). Same profile-scoped cache shape as
+  /// getOrGenerateRadarSummary; `facts` is built by the caller
+  /// (src/features/portfolio/score/summary.ts) from the already-computed
+  /// PortfolioScoreResult — this function never touches the portfolio or
+  /// recomputes the score itself.
+  async getOrGenerateScoreSummary(
+    profileId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "PORTFOLIO_SCORE_SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: null,
+        profileId,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          'Escreva um "Resumo da IA" de 2 a 3 frases sobre a composição desta carteira de ' +
+          "investimentos, com base apenas nos dados fornecidos abaixo. Esta é uma análise " +
+          "puramente informativa — nunca recomende comprar, vender ou ajustar qualquer ativo, e " +
+          `nunca mencione dados que não estejam listados abaixo:\n${facts.join("\n")}`,
+        maxTokens: 250,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: {
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + SCORE_CACHE_TTL_HOURS * 60 * 60 * 1000),
+              generatedAt: new Date(),
+            },
+          })
+        : await prisma.aiContent.create({
+            data: {
+              ...cacheWhere,
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + SCORE_CACHE_TTL_HOURS * 60 * 60 * 1000),
+            },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// "Análise Inteligente" panel on /score — structured into Pontos
+  /// fortes/Pontos de atenção/Oportunidades de diversificação. Kept as its
+  /// own AiContentKind rather than a mode flag on getOrGenerateScoreSummary,
+  /// same split as getOrGenerateComparisonSummary/...ComparisonAnalysis —
+  /// the two genuinely serve different UI slots with different token
+  /// budgets. Never a buy/sell recommendation.
+  async getOrGenerateScoreAnalysis(
+    profileId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "PORTFOLIO_SCORE_ANALYSIS" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: null,
+        profileId,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          "Analise esta carteira de investimentos com base apenas nos dados fornecidos abaixo. " +
+          'Estruture a resposta em três blocos curtos com estes títulos exatos: "Pontos fortes", ' +
+          '"Pontos de atenção" e "Oportunidades de diversificação". Esta é uma análise puramente ' +
+          "informativa sobre a composição atual da carteira — nunca recomende comprar, vender ou " +
+          "ajustar qualquer ativo, e nunca mencione ativos, setores ou números que não estejam " +
+          `nos dados abaixo:\n${facts.join("\n")}`,
+        maxTokens: 500,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: {
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + SCORE_CACHE_TTL_HOURS * 60 * 60 * 1000),
+              generatedAt: new Date(),
+            },
+          })
+        : await prisma.aiContent.create({
+            data: {
+              ...cacheWhere,
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + SCORE_CACHE_TTL_HOURS * 60 * 60 * 1000),
             },
           })
 

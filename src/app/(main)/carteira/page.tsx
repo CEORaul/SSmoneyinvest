@@ -1,6 +1,8 @@
-import { PackageOpen } from "lucide-react"
+import { Gauge, PackageOpen } from "lucide-react"
+import Link from "next/link"
 import { Suspense } from "react"
 
+import { Button } from "@/components/ui/button"
 import { AddInvestmentButton } from "@/features/portfolio/components/AddInvestmentButton"
 import { AllocationCharts } from "@/features/portfolio/components/AllocationCharts"
 import { InsightsSection } from "@/features/portfolio/components/InsightsSection"
@@ -123,7 +125,13 @@ export default async function CarteiraPage() {
             <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
           </div>
         </div>
-        <AddInvestmentButton />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" nativeButton={false} render={<Link href="/score" />}>
+            <Gauge className="size-4" />
+            Score da Carteira
+          </Button>
+          <AddInvestmentButton />
+        </div>
       </div>
 
       <PortfolioSummaryCards totals={totals} />

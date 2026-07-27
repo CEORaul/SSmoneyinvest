@@ -39,6 +39,7 @@ model Profile {
   savedMarketFilters SavedMarketFilter[]
   priceAlerts        PriceAlert[]
   alertNotifications AlertNotification[]
+  portfolioScoreSnapshots PortfolioScoreSnapshot[]
 
   @@map("profiles")
 }
@@ -418,6 +419,14 @@ enum AiContentKind {
   /// "Radar do Dia"/"IA Financeira" on /radar — see profileId below, the
   /// only AiContentKind that is ever profile-scoped instead of company-scoped.
   RADAR_SUMMARY
+  /// Short "Resumo da IA" under the score gauge on /score — also
+  /// profile-scoped, same reasoning as RADAR_SUMMARY.
+  PORTFOLIO_SCORE_SUMMARY
+  /// The longer, structured "Análise Inteligente" panel on /score (Pontos
+  /// fortes / Pontos de atenção / Oportunidades de diversificação) — kept
+  /// as its own kind rather than a mode flag on PORTFOLIO_SCORE_SUMMARY,
+  /// same reasoning as COMPARISON_SUMMARY vs COMPARISON_ANALYSIS.
+  PORTFOLIO_SCORE_ANALYSIS
 }
 
 enum AiQuestionType {
@@ -847,4 +856,31 @@ model AlertNotification {
 
   @@index([profileId, status, createdAt])
   @@map("alert_notifications")
+}
+
+// ─────────────────────────────────────────────────────────
+// Portfolio score
+// ─────────────────────────────────────────────────────────
+
+/// One row per day a profile's /score page produced a real score — there is
+/// no backfilled history (a portfolio score depends on today's Company
+/// sector/assetClass classification applied to that day's positions, which
+/// can't be honestly recomputed for arbitrary past dates), so this table
+/// starts empty for every existing user and grows one point at a time going
+/// forward, exactly as the spec describes ("mesmo que inicialmente só
+/// exista um ponto"). Written by recordScoreSnapshotIfNeeded() — idempotent
+/// per (profileId, day), never more than one row per day. `breakdown` keeps
+/// the full per-criterion result (score/weight/label) alongside the total,
+/// so a future "why did my score change" view can diff two snapshots
+/// without recomputing anything.
+model PortfolioScoreSnapshot {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  score      Int
+  breakdown  Json
+  createdAt  DateTime @default(now())
+
+  @@index([profileId, createdAt])
+  @@map("portfolio_score_snapshots")
 }
