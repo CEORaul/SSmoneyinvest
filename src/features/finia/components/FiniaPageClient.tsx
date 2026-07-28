@@ -138,7 +138,7 @@ export function FiniaPageClient({ initialConversations, summary, greeting }: Fin
 
       if (!response.ok) {
         const data = await response.json().catch(() => null)
-        toast.error(data?.error ?? "Não foi possível falar com a FinIA agora.")
+        toast.error(data?.error ?? "Não foi possível falar com a SS AI agora.")
         setMessages((current) => current.filter((m) => m.id !== placeholderId))
         setStreamingMessageId(null)
         return
@@ -171,7 +171,7 @@ export function FiniaPageClient({ initialConversations, summary, greeting }: Fin
       const refreshed = await getConversationsAction()
       setConversations(refreshed.conversations)
     } catch {
-      toast.error("Não foi possível falar com a FinIA agora.")
+      toast.error("Não foi possível falar com a SS AI agora.")
       setMessages((current) => current.filter((m) => m.id !== placeholderId))
       setStreamingMessageId(null)
     } finally {
@@ -203,7 +203,7 @@ export function FiniaPageClient({ initialConversations, summary, greeting }: Fin
               </div>
               <div>
                 <h2 className="text-lg font-semibold">{greeting}</h2>
-                <p className="text-sm text-muted-foreground">Bem-vindo à FinIA.</p>
+                <p className="text-sm text-muted-foreground">Bem-vindo à SS AI.</p>
               </div>
             </div>
 

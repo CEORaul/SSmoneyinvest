@@ -46,7 +46,7 @@ export function ExplainWithAiButton({ question, contextFacts = [], label = "Expl
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            Consultando a FinIA...
+            Consultando a SS AI...
           </div>
         ) : answer ? (
           <p className="text-sm leading-relaxed">{answer}</p>
