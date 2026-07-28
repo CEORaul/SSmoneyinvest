@@ -39,3 +39,47 @@ export async function generateText({ system, prompt, maxTokens = 400 }: Generate
   }
   return text.trim()
 }
+
+export interface ChatTurn {
+  role: "user" | "model"
+  text: string
+}
+
+export interface GenerateChatStreamInput {
+  system: string
+  /// Real prior turns of the conversation, oldest first — passed as
+  /// Gemini's own multi-turn `contents` array (not concatenated into the
+  /// prompt string), so pronoun/reference resolution ("qual das duas?")
+  /// is the model's own job, not string-matching in this app. Verified
+  /// live against the real API before this was wired into FinIA.
+  history: ChatTurn[]
+  message: string
+  maxTokens?: number
+}
+
+/// FinIA's chat entry point — real token streaming via the SDK's
+/// generateContentStream, confirmed live (not assumed) to actually yield
+/// incremental chunks before this was built on top of it. Throws on any
+/// failure exactly like generateText; the caller (the /api/finia/chat route)
+/// is responsible for turning a thrown error into a graceful message.
+export async function* generateChatStream({
+  system,
+  history,
+  message,
+  maxTokens = 800,
+}: GenerateChatStreamInput): AsyncGenerator<string> {
+  const contents = [
+    ...history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
+    { role: "user" as const, parts: [{ text: message }] },
+  ]
+
+  const stream = await getGeminiClient().models.generateContentStream({
+    model: AI_MODEL,
+    contents,
+    config: { systemInstruction: system, maxOutputTokens: maxTokens },
+  })
+
+  for await (const chunk of stream) {
+    if (chunk.text) yield chunk.text
+  }
+}

@@ -29,6 +29,12 @@ interface CreateAlertDialogProps {
   /// When set, the dialog edits this alert's direction/target instead of
   /// creating a new one — the asset itself is fixed and not re-selectable.
   editAlert?: PriceAlertRow | null
+  /// When set (and editAlert is not), opens in create mode with the asset
+  /// already selected and direction/target pre-filled — the "preencher
+  /// formulário" action FinIA can trigger (e.g. "criar alerta para PETR4
+  /// abaixo de R$30"). The user still has to click "Criar alerta"; nothing
+  /// is ever submitted on their behalf.
+  initialPrefill?: CompanySearchResult & { direction: AlertDirection; targetPriceCents: number }
 }
 
 function toCents(value: string): number | null {
@@ -36,12 +42,16 @@ function toCents(value: string): number | null {
   return value.trim() === "" || Number.isNaN(parsed) || parsed <= 0 ? null : Math.round(parsed * 100)
 }
 
-export function CreateAlertDialog({ open, onOpenChange, onSaved, editAlert }: CreateAlertDialogProps) {
+export function CreateAlertDialog({ open, onOpenChange, onSaved, editAlert, initialPrefill }: CreateAlertDialogProps) {
   const isEdit = !!editAlert
-  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
-  const [direction, setDirection] = useState<AlertDirection>(editAlert?.direction ?? "BELOW")
+  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(initialPrefill ?? null)
+  const [direction, setDirection] = useState<AlertDirection>(editAlert?.direction ?? initialPrefill?.direction ?? "BELOW")
   const [targetInput, setTargetInput] = useState(
-    editAlert ? String(editAlert.targetPriceCents / 100) : ""
+    editAlert
+      ? String(editAlert.targetPriceCents / 100)
+      : initialPrefill
+        ? String(initialPrefill.targetPriceCents / 100)
+        : ""
   )
   const [saving, setSaving] = useState(false)
 

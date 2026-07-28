@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ExplainWithAiButton } from "@/features/finia/components/ExplainWithAiButton"
 import { ActiveFiltersPanel } from "@/features/market/components/ActiveFiltersPanel"
 import { CategoryChips } from "@/features/market/components/CategoryChips"
 import { MarketFilterBar } from "@/features/market/components/MarketFilterBar"
@@ -161,6 +162,12 @@ export function MarketDiscoveryBoard({
               <Bookmark className="size-4" />
               Salvar filtro
             </Button>
+          )}
+          {isAuthenticated && (
+            <ExplainWithAiButton
+              label="Explicar indicadores"
+              question="Explique de forma simples, para um investidor iniciante, o que significam os indicadores mostrados na tabela de ativos do Mercado da SSmoney: Preço, Variação, Dividend Yield, P/L, P/VP, ROE, Market Cap e Volume."
+            />
           )}
         </div>
         <ViewToggle value={view} onChange={handleViewChange} />

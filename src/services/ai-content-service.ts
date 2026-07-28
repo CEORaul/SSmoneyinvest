@@ -3,10 +3,12 @@ import "server-only"
 import { createHash } from "crypto"
 
 import type { AiQuestionType } from "@/generated/prisma/client"
-import { AI_MODEL, generateText } from "@/lib/ai/gemini-client"
 import { getIndicatorsForAssetClass } from "@/features/company/indicators"
 import type { CompanyDetailDTO } from "@/features/company/queries"
 import { translateSector } from "@/features/company/sector-labels"
+import { AIService } from "@/lib/ai/ai-service"
+import { AI_MODEL } from "@/lib/ai/gemini-client"
+import { SYSTEM_PERSONA } from "@/lib/ai/prompts/persona"
 import { prisma } from "@/lib/prisma"
 
 const CACHE_TTL_DAYS = 30
@@ -27,12 +29,6 @@ const SCORE_CACHE_TTL_HOURS = 24
 /// question types reference the actual value/sector comparison and always
 /// get their own per-company row.
 const GENERIC_QUESTION_TYPES: AiQuestionType[] = ["WHAT_IS", "HOW_CALCULATE"]
-
-const SYSTEM_PERSONA =
-  "Você é um educador financeiro neutro e didático, especializado no mercado brasileiro. " +
-  "Responda em português do Brasil, em 2 a 4 frases. Nunca inclua recomendação de compra ou " +
-  "venda. Baseie-se apenas nos dados fornecidos nesta mensagem — nunca mencione, estime ou " +
-  "invente nenhum dado que não foi fornecido explicitamente."
 
 function hashInputs(parts: Array<string | number | null | undefined>): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 32)
@@ -84,7 +80,7 @@ export const aiContentService = {
       const knownFacts = buildKnownFactsList(dto)
       if (knownFacts.length === 0) return null
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           `Escreva um "Resumo Inteligente" de 2 a 3 frases sobre ${dto.name} (${dto.ticker}), ` +
@@ -147,7 +143,7 @@ export const aiContentService = {
       })
       if (!prompt) return null
 
-      const text = await generateText({ system: SYSTEM_PERSONA, prompt, maxTokens: 300 })
+      const text = await AIService.generateText({ system: SYSTEM_PERSONA, prompt, maxTokens: 300 })
 
       const saved = cached
         ? await prisma.aiContent.update({
@@ -190,7 +186,7 @@ export const aiContentService = {
         return { text: cached.content, generatedAt: cached.generatedAt }
       }
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           `Escreva um "Resumo Executivo" de 3 a 4 frases comparando estes ativos, com base ` +
@@ -242,7 +238,7 @@ export const aiContentService = {
         return { text: cached.content, generatedAt: cached.generatedAt }
       }
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           "Analise esta comparação de ativos com base apenas nos dados fornecidos abaixo. " +
@@ -300,7 +296,7 @@ export const aiContentService = {
         return { text: cached.content, generatedAt: cached.generatedAt }
       }
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           `Escreva um "Radar do Dia" de 2 a 4 frases resumindo a carteira de investimentos do ` +
@@ -365,7 +361,7 @@ export const aiContentService = {
         return { text: cached.content, generatedAt: cached.generatedAt }
       }
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           'Escreva um "Resumo da IA" de 2 a 3 frases sobre a composição desta carteira de ' +
@@ -431,7 +427,7 @@ export const aiContentService = {
         return { text: cached.content, generatedAt: cached.generatedAt }
       }
 
-      const text = await generateText({
+      const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
           "Analise esta carteira de investimentos com base apenas nos dados fornecidos abaixo. " +

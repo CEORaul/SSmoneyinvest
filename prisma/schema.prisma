@@ -40,6 +40,7 @@ model Profile {
   priceAlerts        PriceAlert[]
   alertNotifications AlertNotification[]
   portfolioScoreSnapshots PortfolioScoreSnapshot[]
+  conversations      Conversation[]
 
   @@map("profiles")
 }
@@ -883,4 +884,52 @@ model PortfolioScoreSnapshot {
 
   @@index([profileId, createdAt])
   @@map("portfolio_score_snapshots")
+}
+
+// ─────────────────────────────────────────────────────────
+// FinIA
+// ─────────────────────────────────────────────────────────
+
+/// One saved chat thread with FinIA. `title` starts as a short slice of the
+/// first user message and can be renamed; deleting a Conversation cascades
+/// to its messages (no orphaned history).
+model Conversation {
+  id        String                 @id @default(uuid())
+  profileId String
+  profile   Profile                @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  messages  ConversationMessage[]
+
+  @@index([profileId, updatedAt])
+  @@map("finia_conversations")
+}
+
+enum ConversationRole {
+  USER
+  ASSISTANT
+}
+
+/// One turn in a Conversation. `sources` and `suggestions` are only ever
+/// populated on ASSISTANT rows — `sources` is the real list of context
+/// blocks (see src/features/finia/context.ts) that were actually included
+/// in the prompt for this answer, rendered as "Baseado em: ..." under the
+/// message; `suggestions` are the follow-up question chips shown below it.
+/// Both are plain string arrays, not a foreign key to anything, since they
+/// describe how THIS specific answer was produced at the time it was
+/// generated — re-deriving them later could drift from what the user
+/// actually saw.
+model ConversationMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           ConversationRole
+  content        String           @db.Text
+  sources        String[]
+  suggestions    String[]
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("finia_messages")
 }

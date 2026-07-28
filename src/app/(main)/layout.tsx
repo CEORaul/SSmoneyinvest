@@ -40,6 +40,9 @@ export default async function MainLayout({
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/alertas" />}>
               Alertas
             </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/finia" />}>
+              🤖 FinIA
+            </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
               Carteira
             </Button>
