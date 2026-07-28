@@ -183,7 +183,7 @@ export function FiniaPageClient({ initialConversations, summary, greeting }: Fin
   const showDashboard = !selectedId && messages.length === 0
 
   return (
-    <div className="grid h-[calc(100vh-9rem)] min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[260px_1fr]">
+    <div className="grid h-[calc(100vh-9rem)] min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
       <Card className="hidden overflow-hidden py-0 md:block">
         <ConversationList
           conversations={conversations}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 
 export default function EmpresaNotFound() {
   return (
-    <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+    <div className="flex w-full flex-col items-center justify-center gap-4 px-6 py-24 text-center lg:px-8 xl:px-10 2xl:px-12">
       <div className="flex size-14 items-center justify-center rounded-full bg-muted">
         <SearchX className="size-6 text-muted-foreground" />
       </div>

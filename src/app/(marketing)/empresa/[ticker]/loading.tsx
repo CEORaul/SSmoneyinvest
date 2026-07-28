@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 /// latency specifically, once this outer shell is already showing).
 export default function EmpresaLoading() {
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+    <div className="w-full space-y-8 px-6 py-10 lg:px-8 xl:px-10 2xl:px-12">
       <div className="flex items-start gap-4">
         <Skeleton className="size-14 rounded-full" />
         <div className="flex-1 space-y-2">

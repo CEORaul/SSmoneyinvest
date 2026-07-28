@@ -131,7 +131,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+    <div className="w-full space-y-8 px-6 py-10 lg:px-8 xl:px-10 2xl:px-12">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Comparador de Ativos</h1>
         <p className="text-sm text-muted-foreground">

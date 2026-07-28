@@ -21,7 +21,7 @@ export default async function MercadoPage() {
   ])
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-10">
+    <div className="w-full space-y-6 px-6 py-10 lg:px-8 xl:px-10 2xl:px-12">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">

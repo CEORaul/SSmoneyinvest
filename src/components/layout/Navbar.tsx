@@ -96,7 +96,7 @@ export function Navbar({ user }: NavbarProps) {
           : "border-b border-transparent bg-transparent"
       )}
     >
-      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <nav className="flex h-16 w-full items-center justify-between px-6 lg:px-8 xl:px-10 2xl:px-12">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <TrendingUp className="size-4.5" />

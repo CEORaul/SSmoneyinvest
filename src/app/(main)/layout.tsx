@@ -20,7 +20,7 @@ export default async function MainLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <div className="flex h-16 w-full items-center justify-between px-6 lg:px-8 xl:px-10 2xl:px-12">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <TrendingUp className="size-4.5" />
@@ -56,7 +56,7 @@ export default async function MainLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
+      <main className="w-full flex-1 px-6 py-10 lg:px-8 xl:px-10 2xl:px-12">{children}</main>
     </div>
   )
 }
