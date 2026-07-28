@@ -41,7 +41,7 @@ export default async function MainLayout({
               Alertas
             </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/finia" />}>
-              🤖 SS AI
+              SS AI
             </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/carteira" />}>
               Carteira
