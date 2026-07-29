@@ -30,7 +30,7 @@ export function AddWatchlistItemButton({ watchlistId, onAdded }: AddWatchlistIte
       toast.error(result.error ?? "Não foi possível adicionar o ativo.")
       return
     }
-    toast.success(`${company.ticker} adicionado à Watchlist.`)
+    toast.success(`${company.ticker} adicionado ao Monitor de Ativos.`)
     setOpen(false)
     onAdded()
   }

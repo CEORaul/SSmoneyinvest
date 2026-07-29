@@ -502,7 +502,7 @@ export const aiContentService = {
       const text = await AIService.generateText({
         system: SYSTEM_PERSONA,
         prompt:
-          'Analise esta Watchlist (lista de ativos observados, não necessariamente possuídos) com ' +
+          'Analise este Monitor de Ativos (lista de ativos observados, não necessariamente possuídos) com ' +
           "base apenas nos dados fornecidos abaixo. Responda de forma organizada e objetiva a: " +
           "qual ativo mais valorizou, qual apresenta maior volatilidade (com base na variação " +
           "informada), quais pagam dividendos, e qual classe/setor domina a lista — apenas para os " +

@@ -37,12 +37,12 @@ export function AnalyzeWatchlistPanel({ watchlistId }: AnalyzeWatchlistPanelProp
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="size-4 text-primary" />
-          Análise da Watchlist
+          Análise do Monitor de Ativos
         </CardTitle>
         {status !== "done" && (
           <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={status === "pending"}>
             {status === "pending" && <Loader2 className="size-3.5 animate-spin" />}
-            Analisar Watchlist
+            Analisar Monitor de Ativos
           </Button>
         )}
       </CardHeader>

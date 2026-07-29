@@ -150,7 +150,7 @@ export function WatchlistPageClient({
       <div className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Eye className="size-6 text-primary" />
-          Watchlist
+          Monitor de Ativos
         </h1>
         <p className="text-sm text-muted-foreground">
           Acompanhe oportunidades e ativos de interesse, mesmo sem possuí-los na carteira.

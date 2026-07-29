@@ -26,7 +26,7 @@ async function buildWatchlistFacts(watchlistId: string, profileId: string): Prom
     return parts.join(", ")
   })
 
-  return [`A Watchlist contém ${items.length} ativo(s):`, ...facts]
+  return [`O Monitor de Ativos contém ${items.length} ativo(s):`, ...facts]
 }
 
 export async function getWatchlistAnalysis(

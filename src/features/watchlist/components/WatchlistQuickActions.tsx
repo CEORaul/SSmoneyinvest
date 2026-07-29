@@ -124,7 +124,7 @@ export function WatchlistQuickActions({ item, onRemoved }: WatchlistQuickActions
           </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" disabled={removing} onClick={handleRemove}>
             <Trash2 className="size-4" />
-            Remover da Watchlist
+            Remover do Monitor de Ativos
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
