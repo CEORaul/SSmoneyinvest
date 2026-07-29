@@ -1,9 +1,9 @@
 import "server-only"
 
 import { Prisma } from "@/generated/prisma/client"
+import { getAlertedCompanyIds } from "@/features/alerts/queries"
 import { getFavoriteCompanies } from "@/features/company/queries"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
-import { getWatchlistedCompanyIds } from "@/features/watchlist/queries"
 import { ensureBucketsFresh, ensureCompanyBucketsFresh } from "@/features/news/news-cache-service"
 import { getBucketSpecsForTab, type NewsTabKey } from "@/features/news/query-specs"
 import type { NewsArticleRow, NewsFeedFilters, NewsFeedResult, NewsMatchedCompany } from "@/features/news/types"
@@ -74,29 +74,29 @@ function applySharedFilters(where: Prisma.NewsArticleWhereInput, filters: NewsFe
   }
 }
 
-/// Personal context used to compute per-company `isOwned`/`isWatchlisted`/
+/// Personal context used to compute per-company `isOwned`/`isAlerted`/
 /// `isFavorited` flags (the card's "relevante para você" banner) on every
 /// tab — fetched once per request, not once per article.
 interface PersonalContext {
   ownedCompanyIds: Set<string>
-  watchlistedCompanyIds: Set<string>
+  alertedCompanyIds: Set<string>
   favoritedCompanyIds: Set<string>
 }
 
 async function getPersonalContext(profileId: string | null): Promise<PersonalContext> {
   if (!profileId) {
-    return { ownedCompanyIds: new Set(), watchlistedCompanyIds: new Set(), favoritedCompanyIds: new Set() }
+    return { ownedCompanyIds: new Set(), alertedCompanyIds: new Set(), favoritedCompanyIds: new Set() }
   }
 
-  const [portfolio, watchlistedIds, favorites] = await Promise.all([
+  const [portfolio, alertedIds, favorites] = await Promise.all([
     getPortfolioSummary(profileId),
-    getWatchlistedCompanyIds(profileId),
+    getAlertedCompanyIds(profileId),
     getFavoriteCompanies(profileId),
   ])
 
   return {
     ownedCompanyIds: new Set(portfolio.positions.filter((p) => Number(p.quantity) > 0).map((p) => p.companyId)),
-    watchlistedCompanyIds: new Set(watchlistedIds),
+    alertedCompanyIds: new Set(alertedIds),
     favoritedCompanyIds: new Set(favorites.map((f) => f.id)),
   }
 }
@@ -125,7 +125,7 @@ async function hydrateArticles(
       priceSource: link.company.priceSource,
       priceCents: link.company.priceCents,
       isOwned: context.ownedCompanyIds.has(link.companyId),
-      isWatchlisted: context.watchlistedCompanyIds.has(link.companyId),
+      isAlerted: context.alertedCompanyIds.has(link.companyId),
       isFavorited: context.favoritedCompanyIds.has(link.companyId),
     }))
 
@@ -190,8 +190,8 @@ export async function getBucketFeed(
   return { articles: await hydrateArticles(rows, opts.profileId, context), nextCursor: buildNextCursor(offset, limit, rows.length) }
 }
 
-/// Backs Minha Carteira / Monitor de Ativos — refreshes a dedicated search
-/// bucket per held/watched company (capped, see MAX_COMPANY_BUCKETS in
+/// Backs Minha Carteira / Alertas — refreshes a dedicated search bucket
+/// per held/alerted company (capped, see MAX_COMPANY_BUCKETS in
 /// news-cache-service.ts) so these tabs actually find news about the user's
 /// own tickers, not just whatever coincidentally showed up in the generic
 /// category searches. Still the same honest contract as every other tab:

@@ -77,3 +77,16 @@ export async function getRecentNotificationsForProfile(
 export async function getUnreadNotificationCount(profileId: string): Promise<number> {
   return prisma.alertNotification.count({ where: { profileId, status: "UNREAD" } })
 }
+
+/// Distinct companies the profile has a live alert on (any non-canceled
+/// status — same scope as getAlertsForProfile) — backs /noticias' Alertas
+/// tab. A general-purpose cross-feature query, not tied to the alerts list
+/// UI itself.
+export async function getAlertedCompanyIds(profileId: string): Promise<string[]> {
+  const rows = await prisma.priceAlert.findMany({
+    where: { profileId, status: { not: "CANCELED" } },
+    select: { companyId: true },
+    distinct: ["companyId"],
+  })
+  return rows.map((row) => row.companyId)
+}

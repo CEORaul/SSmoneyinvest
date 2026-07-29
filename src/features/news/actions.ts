@@ -1,10 +1,10 @@
 "use server"
 
+import { getAlertedCompanyIds } from "@/features/alerts/queries"
 import { getBucketFeed, getCompanyScopedFeed, getOwnedCompanyIds, getSavedArticles, toggleSavedArticle } from "@/features/news/queries"
 import type { NewsTabKey } from "@/features/news/query-specs"
 import { getNewsSummary } from "@/features/news/summary"
 import { DEFAULT_NEWS_FEED_FILTERS, type NewsFeedFilters, type NewsFeedResult } from "@/features/news/types"
-import { getWatchlistedCompanyIds } from "@/features/watchlist/queries"
 import { requireUser } from "@/lib/auth/session"
 
 export interface NewsFeedActionInput {
@@ -18,8 +18,8 @@ export interface NewsFeedActionInput {
 /// client always calls this same action on tab switch, search, filter
 /// change, and "load more," never a per-tab action. Bucket tabs (Mercado/
 /// FIIs/ETFs/Cripto/Internacional) refresh their cache here if stale (see
-/// getBucketFeed → ensureBucketsFresh); Minha Carteira/Monitor de Ativos
-/// never call the provider themselves, only filter what's already cached.
+/// getBucketFeed → ensureBucketsFresh); Minha Carteira/Alertas never call
+/// the provider themselves, only filter what's already cached.
 export async function getNewsFeedAction(input: NewsFeedActionInput): Promise<NewsFeedResult> {
   const profile = await requireUser()
   const filters = input.filters ?? DEFAULT_NEWS_FEED_FILTERS
@@ -31,8 +31,8 @@ export async function getNewsFeedAction(input: NewsFeedActionInput): Promise<New
       return getCompanyScopedFeed(companyIds, { ...shared, profileId: profile.id })
     }
 
-    case "watchlist": {
-      const companyIds = await getWatchlistedCompanyIds(profile.id)
+    case "alertas": {
+      const companyIds = await getAlertedCompanyIds(profile.id)
       return getCompanyScopedFeed(companyIds, { ...shared, profileId: profile.id })
     }
 

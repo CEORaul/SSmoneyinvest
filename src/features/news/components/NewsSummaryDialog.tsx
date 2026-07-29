@@ -13,8 +13,8 @@ interface NewsSummaryDialogProps {
 }
 
 /// "✨ Resumir notícia" — the card's button click is itself the explicit
-/// ask (unlike AnalyzeWatchlistPanel/ComparisonAnalysisPanel's own button
-/// inside an already-open panel), so opening this dialog immediately
+/// ask (unlike ComparisonAnalysisPanel's own button inside an already-open
+/// panel), so opening this dialog immediately
 /// requests the structured summary. Zero free text either way: the prompt
 /// is entirely fixed server-side in ai-content-service.ts, grounded only in
 /// this article's own text.

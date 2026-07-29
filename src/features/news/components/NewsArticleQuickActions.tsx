@@ -18,7 +18,6 @@ import { toggleFavoriteAction } from "@/features/company/actions"
 import type { NewsMatchedCompany } from "@/features/news/types"
 import { TradeDialog } from "@/features/portfolio/components/TradeDialog"
 import type { CompanySearchResult } from "@/features/portfolio/queries"
-import { AddToWatchlistDialog } from "@/features/watchlist/components/AddToWatchlistDialog"
 
 interface NewsArticleQuickActionsProps {
   company: NewsMatchedCompany
@@ -26,14 +25,13 @@ interface NewsArticleQuickActionsProps {
 
 /// One ticker chip per company a news article was matched against (see
 /// company-matcher.ts) — an article can mention several assets, so the
-/// integration actions (Abrir ativo/Adicionar alerta/Monitor de Ativos/
-/// Favoritos/Comparar) are scoped per company, not per article. Reuses the
-/// exact same Server Actions/dialogs the rest of the app already uses.
+/// integration actions (Abrir ativo/Adicionar alerta/Favoritos/Comparar)
+/// are scoped per company, not per article. Reuses the exact same Server
+/// Actions/dialogs the rest of the app already uses.
 export function NewsArticleQuickActions({ company }: NewsArticleQuickActionsProps) {
   const router = useRouter()
   const [tradeOpen, setTradeOpen] = useState(false)
   const [alertOpen, setAlertOpen] = useState(false)
-  const [watchlistOpen, setWatchlistOpen] = useState(false)
   const [favorited, setFavorited] = useState(company.isFavorited)
   const [favoriting, setFavoriting] = useState(false)
 
@@ -95,10 +93,6 @@ export function NewsArticleQuickActions({ company }: NewsArticleQuickActionsProp
             <Plus className="size-4" />
             Adicionar alerta
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setWatchlistOpen(true) }}>
-            <Plus className="size-4" />
-            Adicionar ao Monitor de Ativos
-          </DropdownMenuItem>
           <DropdownMenuItem disabled={favoriting} onClick={handleFavorite}>
             <Heart className="size-4" />
             {favorited ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
@@ -116,7 +110,7 @@ export function NewsArticleQuickActions({ company }: NewsArticleQuickActionsProp
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {(company.isOwned || company.isWatchlisted || favorited) && (
+      {(company.isOwned || company.isAlerted || favorited) && (
         <Badge variant="outline" className="ml-0.5">
           Relevante
         </Badge>
@@ -124,7 +118,6 @@ export function NewsArticleQuickActions({ company }: NewsArticleQuickActionsProp
 
       <TradeDialog type="BUY" company={searchResult} open={tradeOpen} onOpenChange={setTradeOpen} />
       <CreateAlertDialog open={alertOpen} onOpenChange={setAlertOpen} onSaved={() => setAlertOpen(false)} initialCompany={searchResult} />
-      <AddToWatchlistDialog open={watchlistOpen} onOpenChange={setWatchlistOpen} companyId={company.id} ticker={company.ticker} />
     </div>
   )
 }

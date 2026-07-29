@@ -25,10 +25,10 @@ export const NEWS_DATE_RANGE_LABELS: Record<NewsDateRange, string> = {
 
 /// A Company matched inside an article's text (see company-matcher.ts) —
 /// carries exactly the fields TradeDialog/CreateAlertDialog/
-/// addWatchlistItemAction/toggleFavoriteAction already expect, so the news
-/// card's integration buttons never need a second lookup. The three
-/// `is*` flags are what "Você possui PETR4"/"Você acompanha MXRF11"/"Este
-/// ativo está no seu Monitor de Ativos" render from.
+/// toggleFavoriteAction already expect, so the news card's integration
+/// buttons never need a second lookup. The three `is*` flags are what
+/// "Você possui PETR4"/"Você tem um alerta em MXRF11"/"Você favoritou
+/// PRIO3" render from.
 export interface NewsMatchedCompany {
   id: string
   ticker: string
@@ -38,7 +38,7 @@ export interface NewsMatchedCompany {
   priceSource: PriceSource
   priceCents: number
   isOwned: boolean
-  isWatchlisted: boolean
+  isAlerted: boolean
   isFavorited: boolean
 }
 

@@ -35,8 +35,8 @@ interface CreateAlertDialogProps {
   /// abaixo de R$30"). The user still has to click "Criar alerta"; nothing
   /// is ever submitted on their behalf.
   initialPrefill?: CompanySearchResult & { direction: AlertDirection; targetPriceCents: number }
-  /// Lighter-weight variant of initialPrefill for the Watchlist's 🔔
-  /// quick-alert flow — pre-selects the asset only. direction/targetInput
+  /// Lighter-weight variant of initialPrefill for quick-alert flows (e.g.
+  /// a news card's "Adicionar alerta") — pre-selects the asset only. direction/targetInput
   /// stay at their normal defaults ("BELOW", empty) so nothing pre-fills a
   /// price the user might submit without noticing; ignored when editAlert
   /// or initialPrefill is set. Callers that reuse one dialog instance across

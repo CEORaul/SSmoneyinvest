@@ -20,7 +20,7 @@ interface NewsCardProps {
 function getRelevanceMessage(companies: NewsMatchedCompany[]): string | null {
   for (const company of companies) {
     if (company.isOwned) return `Você possui ${company.ticker}.`
-    if (company.isWatchlisted) return `${company.ticker} está no seu Monitor de Ativos.`
+    if (company.isAlerted) return `Você tem um alerta em ${company.ticker}.`
     if (company.isFavorited) return `Você acompanha ${company.ticker}.`
   }
   return null
