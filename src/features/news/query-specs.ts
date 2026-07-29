@@ -1,9 +1,8 @@
 import type { NewsSearchParams } from "@/lib/news/providers/types"
 
 export type NewsTabKey =
-  | "para-voce"
-  | "mercado"
   | "carteira"
+  | "mercado"
   | "watchlist"
   | "fiis"
   | "etfs"
@@ -11,9 +10,8 @@ export type NewsTabKey =
   | "internacional"
 
 export const NEWS_TAB_LABELS: Record<NewsTabKey, string> = {
-  "para-voce": "Para Você",
-  mercado: "Mercado",
   carteira: "Minha Carteira",
+  mercado: "Mercado",
   watchlist: "Monitor de Ativos",
   fiis: "FIIs",
   etfs: "ETFs",
@@ -21,10 +19,10 @@ export const NEWS_TAB_LABELS: Record<NewsTabKey, string> = {
   internacional: "Internacional",
 }
 
+/// "Minha Carteira" leads — the default/first tab on page load.
 export const NEWS_TAB_ORDER: NewsTabKey[] = [
-  "para-voce",
-  "mercado",
   "carteira",
+  "mercado",
   "watchlist",
   "fiis",
   "etfs",
@@ -39,8 +37,8 @@ export interface NewsBucketSpec {
 
 /// Tabs backed by one or more cached search-query "buckets" — each bucket
 /// is one GNews /search call, cached and refreshed independently (see
-/// news-cache-service.ts). "Para Você"/"Minha Carteira"/"Monitor de Ativos"
-/// are deliberately absent here: they're computed by filtering the whole
+/// news-cache-service.ts). "Minha Carteira"/"Monitor de Ativos" are
+/// deliberately absent here: they're computed by filtering the whole
 /// already-cached article set against the profile's real companies (see
 /// queries.ts), never their own provider query — there's no bucket to
 /// refresh because there's nothing new to fetch, just a different lens on

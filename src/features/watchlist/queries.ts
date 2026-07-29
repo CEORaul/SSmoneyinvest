@@ -7,9 +7,8 @@ import type { WatchlistItemRow, WatchlistStats, WatchlistSummary } from "@/featu
 import { prisma } from "@/lib/prisma"
 
 /// Distinct companies tracked across every list a profile owns — used by
-/// /noticias to scope the "Monitor de Ativos" tab and the "Para Você"
-/// personalization score. A general-purpose cross-feature query, not tied
-/// to any single watchlist.
+/// /noticias to scope the "Monitor de Ativos" tab. A general-purpose
+/// cross-feature query, not tied to any single watchlist.
 export async function getWatchlistedCompanyIds(profileId: string): Promise<string[]> {
   const rows = await prisma.watchlistItem.findMany({
     where: { watchlist: { profileId } },

@@ -1,10 +1,9 @@
 "use server"
 
-import { getBucketFeed, getCompanyScopedFeed, getPersonalizedFeed, getSavedArticles, toggleSavedArticle } from "@/features/news/queries"
+import { getBucketFeed, getCompanyScopedFeed, getOwnedCompanyIds, getSavedArticles, toggleSavedArticle } from "@/features/news/queries"
 import type { NewsTabKey } from "@/features/news/query-specs"
 import { getNewsSummary } from "@/features/news/summary"
 import { DEFAULT_NEWS_FEED_FILTERS, type NewsFeedFilters, type NewsFeedResult } from "@/features/news/types"
-import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { getWatchlistedCompanyIds } from "@/features/watchlist/queries"
 import { requireUser } from "@/lib/auth/session"
 
@@ -15,11 +14,11 @@ export interface NewsFeedActionInput {
   filters?: NewsFeedFilters
 }
 
-/// One entry point for every tab, including the personalized/company-
-/// scoped ones — the client always calls this same action on tab switch,
-/// search, filter change, and "load more," never a per-tab action. Bucket
-/// tabs (Mercado/FIIs/ETFs/Cripto/Internacional) refresh their cache here
-/// if stale (see getBucketFeed → ensureBucketsFresh); the personalized tabs
+/// One entry point for every tab, including the company-scoped ones — the
+/// client always calls this same action on tab switch, search, filter
+/// change, and "load more," never a per-tab action. Bucket tabs (Mercado/
+/// FIIs/ETFs/Cripto/Internacional) refresh their cache here if stale (see
+/// getBucketFeed → ensureBucketsFresh); Minha Carteira/Monitor de Ativos
 /// never call the provider themselves, only filter what's already cached.
 export async function getNewsFeedAction(input: NewsFeedActionInput): Promise<NewsFeedResult> {
   const profile = await requireUser()
@@ -27,14 +26,8 @@ export async function getNewsFeedAction(input: NewsFeedActionInput): Promise<New
   const shared = { cursor: input.cursor, search: input.search, filters }
 
   switch (input.tab) {
-    case "para-voce":
-      return getPersonalizedFeed(profile.id, shared)
-
     case "carteira": {
-      const portfolio = await getPortfolioSummary(profile.id)
-      const companyIds = [
-        ...new Set(portfolio.positions.filter((p) => Number(p.quantity) > 0).map((p) => p.companyId)),
-      ]
+      const companyIds = await getOwnedCompanyIds(profile.id)
       return getCompanyScopedFeed(companyIds, { ...shared, profileId: profile.id })
     }
 

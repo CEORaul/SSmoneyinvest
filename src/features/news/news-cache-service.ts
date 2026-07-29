@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma"
 /// How long a bucket's cached articles are trusted before the next request
 /// for that bucket triggers a real provider call — the primary lever for
 /// staying within a shared GNews API key's daily quota across every user of
-/// this app. Short enough that "Para Você"/tab content doesn't feel stale,
+/// this app. Short enough that tab content doesn't feel stale,
 /// long enough that a burst of page loads across many users never causes a
 /// burst of provider calls.
 const NEWS_CACHE_TTL_MINUTES = 30

@@ -75,8 +75,8 @@ function applySharedFilters(where: Prisma.NewsArticleWhereInput, filters: NewsFe
 }
 
 /// Personal context used to compute per-company `isOwned`/`isWatchlisted`/
-/// `isFavorited` flags and the "Para Você" relevance score — fetched once
-/// per request, not once per article.
+/// `isFavorited` flags (the card's "relevante para você" banner) on every
+/// tab — fetched once per request, not once per article.
 interface PersonalContext {
   ownedCompanyIds: Set<string>
   watchlistedCompanyIds: Set<string>
@@ -219,58 +219,12 @@ export async function getCompanyScopedFeed(
   return { articles: await hydrateArticles(rows, opts.profileId, context), nextCursor: buildNextCursor(offset, limit, rows.length) }
 }
 
-/// "Para Você" — union of portfolio + Monitor de Ativos + Favoritos
-/// companies, explicitly scored (never a black-box ranking): owned (+3) >
-/// watchlisted (+2) > favorited (+1), with a same-day recency bonus (+1).
-/// An article matching several of the user's companies takes its single
-/// best-reason score, not the sum — one highly-relevant article shouldn't
-/// be out-ranked by an unrelated one that happens to mention many tickers.
-export async function getPersonalizedFeed(
-  profileId: string,
-  opts: { cursor?: string | null; search?: string; filters: NewsFeedFilters; limit?: number }
-): Promise<NewsFeedResult> {
-  const context = await getPersonalContext(profileId)
-  const companyIds = [...new Set([...context.ownedCompanyIds, ...context.watchlistedCompanyIds, ...context.favoritedCompanyIds])]
-  if (companyIds.length === 0) return { articles: [], nextCursor: null }
-
-  const limit = opts.limit ?? DEFAULT_LIMIT
-  const offset = parseCursor(opts.cursor)
-
-  const where: Prisma.NewsArticleWhereInput = { companyLinks: { some: { companyId: { in: companyIds } } } }
-  applySharedFilters(where, opts.filters, opts.search)
-
-  // Relevance can't be expressed as a DB ORDER BY over a scored join, so this
-  // scores in application code — bounded to a reasonably-sized recent window
-  // (personal company sets are naturally small; this is not a full-table scan).
-  const rows = await prisma.newsArticle.findMany({
-    where,
-    include: ARTICLE_INCLUDE,
-    orderBy: { publishedAt: "desc" },
-    take: 300,
-  })
-
-  const dayAgo = Date.now() - 24 * 60 * 60 * 1000
-  const scored = rows.map((row) => {
-    const recencyBonus = row.publishedAt.getTime() >= dayAgo ? 1 : 0
-    const bestCompanyScore = Math.max(
-      0,
-      ...row.companyLinks.map((link) => {
-        if (context.ownedCompanyIds.has(link.companyId)) return 3
-        if (context.watchlistedCompanyIds.has(link.companyId)) return 2
-        if (context.favoritedCompanyIds.has(link.companyId)) return 1
-        return 0
-      })
-    )
-    return { row, score: bestCompanyScore + recencyBonus }
-  })
-
-  scored.sort((a, b) => b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime())
-  const page = scored.slice(offset, offset + limit).map((entry) => entry.row)
-
-  return {
-    articles: await hydrateArticles(page, profileId, context),
-    nextCursor: buildNextCursor(offset, limit, page.length),
-  }
+/// Distinct companies actually held (quantity > 0) — backs the Minha
+/// Carteira tab. A general-purpose helper, not tied to the feed shape, so
+/// it's also the natural reuse point for page.tsx's initial SSR fetch.
+export async function getOwnedCompanyIds(profileId: string): Promise<string[]> {
+  const portfolio = await getPortfolioSummary(profileId)
+  return [...new Set(portfolio.positions.filter((p) => Number(p.quantity) > 0).map((p) => p.companyId))]
 }
 
 export async function getSavedArticles(
