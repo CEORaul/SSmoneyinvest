@@ -21,11 +21,18 @@ export function ComparisonAnalysisPanel({ tickers }: ComparisonAnalysisPanelProp
 
   async function handleAnalyze() {
     setStatus("pending")
-    const result = await requestComparisonAnalysisAction(tickers)
-    if (result.ok && result.text) {
-      setText(result.text)
-      setStatus("done")
-    } else {
+    try {
+      const result = await requestComparisonAnalysisAction(tickers)
+      if (result.ok && result.text) {
+        setText(result.text)
+        setStatus("done")
+      } else {
+        setStatus("unavailable")
+      }
+    } catch {
+      // A network hiccup or a killed serverless invocation rejects instead
+      // of resolving with { ok: false } — without this, the button would
+      // spin forever instead of ever telling the user it failed.
       setStatus("unavailable")
     }
   }

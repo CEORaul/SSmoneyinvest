@@ -18,6 +18,12 @@ import { getComparisonIndicatorRows } from "@/features/comparator/table-highligh
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { getOptionalProfile } from "@/lib/auth/session"
 
+// "Analisar Comparação" calls Gemini via a Server Action on this page —
+// raises the default function timeout so a slow-but-successful call isn't
+// killed mid-flight (Server Action maxDuration is set at the page level
+// per Next.js docs, not on the action itself).
+export const maxDuration = 30
+
 const DEFAULT_CHART_PERIOD: ChartPeriod = "6M"
 
 interface ComparePageProps {

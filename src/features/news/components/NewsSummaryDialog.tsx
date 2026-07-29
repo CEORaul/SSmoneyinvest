@@ -1,7 +1,7 @@
 "use client"
 
 import { Loader2, Sparkles } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { requestNewsSummaryAction } from "@/features/news/actions"
@@ -21,6 +21,7 @@ interface NewsSummaryDialogProps {
 export function NewsSummaryDialog({ article, onOpenChange }: NewsSummaryDialogProps) {
   const [status, setStatus] = useState<"idle" | "pending" | "done" | "unavailable">("idle")
   const [text, setText] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     if (!article) {
@@ -30,16 +31,27 @@ export function NewsSummaryDialog({ article, onOpenChange }: NewsSummaryDialogPr
       return
     }
 
+    const requestId = ++requestIdRef.current
     setStatus("pending")
     setText(null)
-    requestNewsSummaryAction(article.id).then((result) => {
-      if (result.ok && result.text) {
-        setText(result.text)
-        setStatus("done")
-      } else {
+    requestNewsSummaryAction(article.id)
+      .then((result) => {
+        if (requestId !== requestIdRef.current) return
+        if (result.ok && result.text) {
+          setText(result.text)
+          setStatus("done")
+        } else {
+          setStatus("unavailable")
+        }
+      })
+      .catch(() => {
+        // A network hiccup or a killed serverless invocation rejects instead
+        // of resolving with { ok: false } — without this, the dialog would
+        // spin on "Gerando resumo..." forever instead of ever telling the
+        // user it failed.
+        if (requestId !== requestIdRef.current) return
         setStatus("unavailable")
-      }
-    })
+      })
   }, [article])
 
   return (
