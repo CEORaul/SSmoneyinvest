@@ -38,7 +38,7 @@ export default async function MainLayout({
               Comparar
             </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/watchlist" />}>
-              👀 Watchlist
+              Watchlist
             </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/alertas" />}>
               Alertas
