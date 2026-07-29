@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AiContentKind" ADD VALUE 'WATCHLIST_ANALYSIS';

@@ -35,6 +35,14 @@ interface CreateAlertDialogProps {
   /// abaixo de R$30"). The user still has to click "Criar alerta"; nothing
   /// is ever submitted on their behalf.
   initialPrefill?: CompanySearchResult & { direction: AlertDirection; targetPriceCents: number }
+  /// Lighter-weight variant of initialPrefill for the Watchlist's 🔔
+  /// quick-alert flow — pre-selects the asset only. direction/targetInput
+  /// stay at their normal defaults ("BELOW", empty) so nothing pre-fills a
+  /// price the user might submit without noticing; ignored when editAlert
+  /// or initialPrefill is set. Callers that reuse one dialog instance across
+  /// different quick-alert targets should key it by company id so this seed
+  /// value re-applies on each open (useState only reads it on mount).
+  initialCompany?: CompanySearchResult
 }
 
 function toCents(value: string): number | null {
@@ -42,9 +50,18 @@ function toCents(value: string): number | null {
   return value.trim() === "" || Number.isNaN(parsed) || parsed <= 0 ? null : Math.round(parsed * 100)
 }
 
-export function CreateAlertDialog({ open, onOpenChange, onSaved, editAlert, initialPrefill }: CreateAlertDialogProps) {
+export function CreateAlertDialog({
+  open,
+  onOpenChange,
+  onSaved,
+  editAlert,
+  initialPrefill,
+  initialCompany,
+}: CreateAlertDialogProps) {
   const isEdit = !!editAlert
-  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(initialPrefill ?? null)
+  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(
+    initialPrefill ?? initialCompany ?? null
+  )
   const [direction, setDirection] = useState<AlertDirection>(editAlert?.direction ?? initialPrefill?.direction ?? "BELOW")
   const [targetInput, setTargetInput] = useState(
     editAlert

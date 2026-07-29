@@ -41,6 +41,7 @@ model Profile {
   alertNotifications AlertNotification[]
   portfolioScoreSnapshots PortfolioScoreSnapshot[]
   conversations      Conversation[]
+  watchlists         Watchlist[]
 
   @@map("profiles")
 }
@@ -204,6 +205,7 @@ model Company {
   radarNotifications     RadarNotification[]
   priceAlerts            PriceAlert[]
   alertNotifications     AlertNotification[]
+  watchlistItems         WatchlistItem[]
 
   @@index([assetClass])
   @@index([sector])
@@ -428,6 +430,11 @@ enum AiContentKind {
   /// as its own kind rather than a mode flag on PORTFOLIO_SCORE_SUMMARY,
   /// same reasoning as COMPARISON_SUMMARY vs COMPARISON_ANALYSIS.
   PORTFOLIO_SCORE_ANALYSIS
+  /// "✨ Analisar Watchlist" button result — profile-scoped like
+  /// RADAR_SUMMARY, additionally keyed by comparisonKey (holding the
+  /// watchlistId, despite the field's comparator-era name) since a profile
+  /// can own several lists, each with its own analysis.
+  WATCHLIST_ANALYSIS
 }
 
 enum AiQuestionType {
@@ -932,4 +939,52 @@ model ConversationMessage {
 
   @@index([conversationId, createdAt])
   @@map("finia_messages")
+}
+
+// ─────────────────────────────────────────────────────────
+// Watchlist Inteligente
+// ─────────────────────────────────────────────────────────
+
+/// A named, user-owned tracking list ("Dividendos", "FIIs", "Oportunidades"...).
+/// Deliberately separate from Favorite: a favorite is a single boolean flag on
+/// an asset, while a Watchlist is an organizational container a profile can
+/// create many of, each with its own items — the two features overlap in
+/// spirit (both track interest without requiring ownership) but not in shape.
+/// `isPublic`/`ownerId`-style sharing fields are intentionally not modelled
+/// yet — today every Watchlist is private to its `profile` — but nothing here
+/// blocks adding a nullable `visibility` enum and a join table for
+/// collaborators later without touching this shape.
+model Watchlist {
+  id          String          @id @default(uuid())
+  profileId   String
+  profile     Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  items       WatchlistItem[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([profileId, createdAt])
+  @@map("watchlists")
+}
+
+/// One tracked asset inside a Watchlist. Holds no price/quote data of its
+/// own — every displayed field (price, variação, volume, market cap...) is
+/// read live off `Company` and its existing price-history tables, so an item
+/// never goes stale relative to the rest of the app. The unique constraint
+/// prevents adding the same company to the same list twice; adding the same
+/// company to several different lists is allowed and expected.
+model WatchlistItem {
+  id          String    @id @default(uuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  addedAt     DateTime  @default(now())
+
+  @@unique([watchlistId, companyId])
+  @@index([companyId])
+  @@map("watchlist_items")
 }
