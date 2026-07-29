@@ -42,6 +42,7 @@ model Profile {
   portfolioScoreSnapshots PortfolioScoreSnapshot[]
   conversations      Conversation[]
   watchlists         Watchlist[]
+  savedNewsArticles  SavedNewsArticle[]
 
   @@map("profiles")
 }
@@ -206,6 +207,7 @@ model Company {
   priceAlerts            PriceAlert[]
   alertNotifications     AlertNotification[]
   watchlistItems         WatchlistItem[]
+  newsArticleLinks       NewsArticleCompany[]
 
   @@index([assetClass])
   @@index([sector])
@@ -435,6 +437,11 @@ enum AiContentKind {
   /// watchlistId, despite the field's comparator-era name) since a profile
   /// can own several lists, each with its own analysis.
   WATCHLIST_ANALYSIS
+  /// "✨ Resumir notícia" on /noticias — keyed by comparisonKey (holding the
+  /// NewsArticle id here) since the same article's summary is identical for
+  /// every reader; profileId stays null, unlike WATCHLIST_ANALYSIS/
+  /// RADAR_SUMMARY/PORTFOLIO_SCORE_* which are genuinely per-user.
+  NEWS_SUMMARY
 }
 
 enum AiQuestionType {
@@ -987,4 +994,116 @@ model WatchlistItem {
   @@unique([watchlistId, companyId])
   @@index([companyId])
   @@map("watchlist_items")
+}
+
+// ─────────────────────────────────────────────────────────
+// Notícias
+// ─────────────────────────────────────────────────────────
+
+/// Which news provider supplied a given article — today only GNEWS, but
+/// kept as its own enum (not a free string) so NewsArticle.provider can
+/// never silently drift into an unrecognized value as more providers
+/// (Finnhub, NewsAPI, Financial Modeling Prep) are added later.
+enum NewsProvider {
+  GNEWS
+}
+
+/// Cross-cutting topic tags applied by keyword-matching at ingestion time
+/// (see src/features/news/topic-tagger.ts) — independent of `buckets` below,
+/// which record *which search query* found the article. An article can
+/// carry several topics (e.g. a Petrobras dividend announcement is both
+/// DIVIDENDS and EARNINGS) and these are exactly the /noticias filter chips.
+enum NewsTopic {
+  DIVIDENDS
+  EARNINGS
+  ACQUISITIONS
+  MERGERS
+  ECONOMY
+  POLITICS
+  TECHNOLOGY
+  AI
+  CRYPTO
+}
+
+/// One cached article, deduplicated by `url` across every bucket/tab that
+/// ever surfaced it — the persistence layer behind /noticias, filled by
+/// news-cache-service.ts (mirrors MarketDataService's cache-aware-over-a-
+/// provider shape). `buckets` records which search-query bucket(s) (see
+/// query-specs.ts — "mercado-economia", "fiis", "cripto-btc", ...) actually
+/// returned this article from the provider; `topics` are the separate,
+/// heuristic filter-chip tags described above. Nothing here is ever shown
+/// to the user without a real provider response backing it — a failed
+/// refresh just serves whatever's already cached (see NewsFetchLog).
+model NewsArticle {
+  id           String       @id @default(uuid())
+  provider     NewsProvider
+  externalId   String?
+  url          String       @unique
+  title        String
+  description  String?      @db.Text
+  content      String?      @db.Text
+  imageUrl     String?
+  author       String?
+  sourceName   String
+  sourceUrl    String?
+  language     String?
+  country      String?
+  publishedAt  DateTime
+  fetchedAt    DateTime     @default(now())
+  buckets      String[]
+  topics       NewsTopic[]
+
+  companyLinks NewsArticleCompany[]
+  savedBy      SavedNewsArticle[]
+
+  @@index([publishedAt])
+  @@map("news_articles")
+}
+
+/// Heuristic (never guessed-and-hidden — always derived from a real
+/// ticker/company-name substring match, see company-matcher.ts) link
+/// between an article and a real Company — backs "Ticker relacionado" on
+/// the card, the Minha Carteira/Monitor de Ativos tabs, and "Para Você"
+/// personalization scoring.
+model NewsArticleCompany {
+  id        String      @id @default(uuid())
+  articleId String
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, companyId])
+  @@index([companyId])
+  @@map("news_article_companies")
+}
+
+/// The "Salvar" bookmark button on a news card.
+model SavedNewsArticle {
+  id        String      @id @default(uuid())
+  profileId String
+  profile   Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  articleId String
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([profileId, articleId])
+  @@map("saved_news_articles")
+}
+
+/// One row per bucket refresh attempt — the staleness clock news-cache-
+/// service.ts checks before deciding whether to call the provider again,
+/// and the audit trail for provider failures (status=ERROR keeps the last
+/// cached articles on screen instead of showing nothing or fabricating
+/// content). Mirrors SyncLog's role for market-data syncs.
+model NewsFetchLog {
+  id           String       @id @default(uuid())
+  bucket       String
+  provider     NewsProvider
+  fetchedAt    DateTime     @default(now())
+  articleCount Int
+  status       String
+  errorMessage String?
+
+  @@index([bucket, fetchedAt])
+  @@map("news_fetch_logs")
 }

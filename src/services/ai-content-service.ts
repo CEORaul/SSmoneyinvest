@@ -539,6 +539,62 @@ export const aiContentService = {
       return null
     }
   },
+
+  /// "✨ Resumir notícia" on /noticias — one cached summary per article,
+  /// identical for every reader (profileId stays null, unlike the
+  /// profile-scoped kinds above), keyed by comparisonKey holding the
+  /// NewsArticle id. Structured into the four sections the spec asks for;
+  /// never a buy/sell recommendation.
+  async getOrGenerateNewsSummary(
+    articleId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "NEWS_SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: articleId,
+        profileId: null,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await AIService.generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          "Resuma esta notícia financeira com base apenas no texto fornecido abaixo. Estruture a " +
+          'resposta em quatro blocos curtos com estes títulos exatos: "Resumo curto" (1 frase), ' +
+          '"Resumo completo" (um parágrafo curto), "Principais pontos" (lista de tópicos) e ' +
+          '"Possíveis impactos" (o que essa notícia pode significar para os ativos/mercado ' +
+          "mencionados, de forma especulativa e comedida). Esta é uma análise puramente " +
+          "informativa — nunca recomende comprar, vender ou ajustar qualquer ativo, e nunca " +
+          `mencione fatos que não estejam no texto abaixo:\n${facts.join("\n")}`,
+        maxTokens: 600,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
 }
 
 function toComparisonKey(companies: CompanyDetailDTO[]): string {

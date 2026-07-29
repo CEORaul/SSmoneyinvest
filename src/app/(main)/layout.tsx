@@ -40,6 +40,9 @@ export default async function MainLayout({
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/watchlist" />}>
               Monitor de Ativos
             </Button>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/noticias" />}>
+              Notícias
+            </Button>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/alertas" />}>
               Alertas
             </Button>
