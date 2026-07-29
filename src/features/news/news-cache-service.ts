@@ -114,3 +114,35 @@ export async function ensureBucketFresh(spec: NewsBucketSpec): Promise<void> {
 export async function ensureBucketsFresh(specs: NewsBucketSpec[]): Promise<void> {
   await Promise.all(specs.map((spec) => ensureBucketFresh(spec)))
 }
+
+/// Caps how many per-company GNews searches a single Minha Carteira/Monitor
+/// de Ativos request can trigger — without this, a large portfolio would
+/// mean one provider call per holding on every cache-miss, which a shared
+/// free-tier API key can't sustain across many users. Companies beyond the
+/// cap still surface normally if they happen to appear in the generic
+/// category buckets (Mercado/FIIs/.../Internacional) — they just don't get
+/// their own dedicated search.
+const MAX_COMPANY_BUCKETS = 15
+
+function toCompanyBucketSpec(company: { ticker: string; name: string }): NewsBucketSpec {
+  return { bucket: `company-${company.ticker}`, query: { query: `"${company.ticker}" OR "${company.name}"`, lang: "pt" } }
+}
+
+/// Minha Carteira/Monitor de Ativos were originally a pure filter over
+/// whatever the generic category tabs happened to cache — which turned out
+/// to almost never mention a specific held ticker in practice (a handful of
+/// broad "economia"/"Ibovespa" searches rarely name any one company). This
+/// gives those two tabs their own targeted searches per company, subject to
+/// the same 30-minute cache TTL as every other bucket.
+///
+/// Sequential, not Promise.all like ensureBucketsFresh — a portfolio with
+/// several holdings firing that many GNews calls at once trips its rate
+/// limit (verified live: a 5-company burst 429'd one of the five even with
+/// fetchWithRetry's backoff). One at a time costs a bit of latency on a
+/// cold cache but each company's own 30-minute TTL means this almost never
+/// runs at full length twice in a row for the same user.
+export async function ensureCompanyBucketsFresh(companies: { ticker: string; name: string }[]): Promise<void> {
+  for (const spec of companies.slice(0, MAX_COMPANY_BUCKETS).map(toCompanyBucketSpec)) {
+    await ensureBucketFresh(spec)
+  }
+}

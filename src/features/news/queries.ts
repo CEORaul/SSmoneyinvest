@@ -4,7 +4,7 @@ import { Prisma } from "@/generated/prisma/client"
 import { getFavoriteCompanies } from "@/features/company/queries"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { getWatchlistedCompanyIds } from "@/features/watchlist/queries"
-import { ensureBucketsFresh } from "@/features/news/news-cache-service"
+import { ensureBucketsFresh, ensureCompanyBucketsFresh } from "@/features/news/news-cache-service"
 import { getBucketSpecsForTab, type NewsTabKey } from "@/features/news/query-specs"
 import type { NewsArticleRow, NewsFeedFilters, NewsFeedResult, NewsMatchedCompany } from "@/features/news/types"
 import { prisma } from "@/lib/prisma"
@@ -190,21 +190,43 @@ export async function getBucketFeed(
   return { articles: await hydrateArticles(rows, opts.profileId, context), nextCursor: buildNextCursor(offset, limit, rows.length) }
 }
 
-/// Backs Minha Carteira / Monitor de Ativos — a pure filter over whatever's
-/// already cached under the topic tabs (see the module doc in
-/// query-specs.ts), never its own provider query. If a held/watched
-/// company simply hasn't appeared in any refreshed bucket yet, this
-/// legitimately returns fewer articles — never fabricated to fill the gap.
+/// Backs Minha Carteira / Monitor de Ativos — refreshes a dedicated search
+/// bucket per held/watched company (capped, see MAX_COMPANY_BUCKETS in
+/// news-cache-service.ts) so these tabs actually find news about the user's
+/// own tickers, not just whatever coincidentally showed up in the generic
+/// category searches. Still the same honest contract as every other tab:
+/// a provider failure or a company simply not being in the news yet
+/// legitimately returns fewer articles, never fabricated to fill the gap.
 export async function getCompanyScopedFeed(
   companyIds: string[],
   opts: { cursor?: string | null; search?: string; filters: NewsFeedFilters; profileId: string | null; limit?: number }
 ): Promise<NewsFeedResult> {
   if (companyIds.length === 0) return { articles: [], nextCursor: null }
 
+  const companies = await prisma.company.findMany({
+    where: { id: { in: companyIds } },
+    select: { ticker: true, name: true },
+  })
+  await ensureCompanyBucketsFresh(companies)
+
   const limit = opts.limit ?? DEFAULT_LIMIT
   const offset = parseCursor(opts.cursor)
 
-  const where: Prisma.NewsArticleWhereInput = { companyLinks: { some: { companyId: { in: companyIds } } } }
+  // OR'd together, not just companyLinks: an article fetched specifically
+  // for "company-PETR4" might not literally contain the string "PETR4" in
+  // its title/description (company-matcher.ts missed it), but it was still
+  // returned by a search for that exact company and belongs on this tab.
+  const companyBucketKeys = companies.map((c) => `company-${c.ticker}`)
+  const where: Prisma.NewsArticleWhereInput = {
+    AND: [
+      {
+        OR: [
+          { companyLinks: { some: { companyId: { in: companyIds } } } },
+          { buckets: { hasSome: companyBucketKeys } },
+        ],
+      },
+    ],
+  }
   applySharedFilters(where, opts.filters, opts.search)
 
   const rows = await prisma.newsArticle.findMany({
