@@ -7,13 +7,14 @@ import type { ChartLocale, ChartProviderName, ChartSize } from "@/lib/tradingvie
 /// project-wide search-and-replace.
 
 /// Which chart engine renders right now — flips the whole app in one place
-/// once a real integration lands (see src/lib/tradingview/service.ts's
-/// PROVIDERS registry). NEXT_PUBLIC_ prefix because chart rendering happens
-/// client-side. Unset today, so this always resolves to "internal"
-/// (SSmoney's own existing chart) — nothing reads this env var yet outside
-/// this file.
+/// (see src/lib/tradingview/service.ts's PROVIDERS registry). NEXT_PUBLIC_
+/// prefix because chart rendering happens client-side. Defaults to the real
+/// free-widget integration as of this phase; set
+/// NEXT_PUBLIC_CHART_PROVIDER=internal to force SSmoney's own chart
+/// everywhere without a code change (e.g. to fully disable TradingView in
+/// an environment), or "tradingview-library" once that provider exists.
 export const CHART_PROVIDER: ChartProviderName =
-  (process.env.NEXT_PUBLIC_CHART_PROVIDER as ChartProviderName | undefined) ?? "internal"
+  (process.env.NEXT_PUBLIC_CHART_PROVIDER as ChartProviderName | undefined) ?? "tradingview-widget"
 
 export const DEFAULT_CHART_LOCALE: ChartLocale = "pt"
 

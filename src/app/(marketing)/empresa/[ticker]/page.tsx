@@ -15,6 +15,7 @@ import {
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import type { TradeCompany } from "@/features/portfolio/components/TradeDialog"
 import { logAssetView } from "@/features/search/queries"
+import { TradingViewAdvancedChart } from "@/components/tradingview/TradingViewAdvancedChart"
 import { RecentViewTracker } from "@/features/search/components/RecentViewTracker"
 import { BalancoCard } from "@/features/company/components/BalancoCard"
 import { CompanyHealthScore } from "@/features/company/components/CompanyHealthScore"
@@ -125,10 +126,16 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
       <section id="grafico" className="scroll-mt-24 space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Gráfico</h2>
         <div className="rounded-xl border border-border bg-card p-4">
-          <FinancialChart
-            companyId={dto.id}
-            initialPeriod={DEFAULT_CHART_PERIOD}
-            initialPoints={initialPricePoints}
+          <TradingViewAdvancedChart
+            ticker={dto.ticker}
+            assetClass={dto.assetClass}
+            fallback={
+              <FinancialChart
+                companyId={dto.id}
+                initialPeriod={DEFAULT_CHART_PERIOD}
+                initialPoints={initialPricePoints}
+              />
+            }
           />
         </div>
       </section>

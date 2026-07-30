@@ -1,3 +1,4 @@
+import type { AssetClass } from "@/generated/prisma/client"
 import {
   CHART_BREAKPOINTS_PX,
   CHART_RESPONSIVE_HEIGHTS,
@@ -6,7 +7,50 @@ import {
   DEFAULT_CHART_SIZE,
   DEFAULT_CHART_TIMEZONE,
 } from "@/lib/tradingview/tradingview.config"
-import type { ChartRenderConfig, ChartSize, ChartSymbol, ChartTheme, ChartWidgetKind } from "@/lib/tradingview/types"
+import type { ChartLocale, ChartRenderConfig, ChartSize, ChartSymbol, ChartTheme, ChartWidgetKind } from "@/lib/tradingview/types"
+
+/// TradingView exchange prefix per SSmoney AssetClass — every B3-listed
+/// category (STOCK/FII/ETF/BDR) uses the same "BMFBOVESPA" exchange.
+/// CRYPTO tickers in this app are stored in a Coinbase-compatible pair
+/// format already (e.g. "BTCUSD", per the spec's own VALIDAÇÃO list —
+/// Company rows for CRYPTO are manual-entry only, see asset-category.ts's
+/// hasMarketData: false), so they map to "COINBASE" instead of guessing a
+/// Binance-style "USDT" rewrite the stored ticker doesn't have.
+/// FIXED_INCOME/OTHER have no real tradable market symbol at all (manual-
+/// entry categories with no market data — see asset-category.ts) — they
+/// fall back to the B3 default; TradingView simply won't resolve that
+/// symbol, which is exactly what TradingViewFallback exists to catch, never
+/// a reason to special-case them here.
+const EXCHANGE_BY_ASSET_CLASS: Record<AssetClass, string> = {
+  STOCK: "BMFBOVESPA",
+  FII: "BMFBOVESPA",
+  ETF: "BMFBOVESPA",
+  BDR: "BMFBOVESPA",
+  CRYPTO: "COINBASE",
+  FIXED_INCOME: "BMFBOVESPA",
+  OTHER: "BMFBOVESPA",
+}
+
+/// The one place AssetClass -> TradingView exchange is decided — no page or
+/// component ever picks an exchange itself (VALIDAÇÃO section: "Nunca
+/// espalhar lógica pelas páginas").
+export function resolveExchangeForAssetClass(assetClass: AssetClass): string {
+  return EXCHANGE_BY_ASSET_CLASS[assetClass] ?? DEFAULT_CHART_EXCHANGE
+}
+
+/// TradingView's widget locale codes don't match ISO 639-1 for Portuguese —
+/// it's "br" (Brazilian Portuguese), not "pt". Kept as its own conversion
+/// (not folded into ChartLocale itself) so the rest of the app keeps using
+/// the ISO code everywhere else it appears; only the actual widget payload
+/// needs TradingView's own spelling.
+const TRADINGVIEW_LOCALE_BY_CHART_LOCALE: Record<ChartLocale, string> = {
+  pt: "br",
+  en: "en",
+}
+
+export function toTradingViewLocale(locale: ChartLocale): string {
+  return TRADINGVIEW_LOCALE_BY_CHART_LOCALE[locale]
+}
 
 /// TradingViewUtils — pure helper functions, no I/O, no DOM access. Every
 /// function here is structure only (RESPONSIVIDADE/ARQUITETURA sections):
