@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import type { AssetClass } from "@/generated/prisma/client"
+import { NotificationService } from "@/features/alerts/notifications/service"
 import {
   adjustmentSchema,
   incomeSchema,
@@ -23,6 +24,7 @@ import {
 } from "@/features/portfolio/queries"
 import { requireUser } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
+import { formatCurrencyCents } from "@/utils/format"
 import {
   deleteTransaction,
   previewHistoricalPrice,
@@ -166,10 +168,37 @@ export async function recordIncomeAction(input: IncomeInput): Promise<ActionResu
   }
 
   const profile = await requireUser()
+  let transaction
   try {
-    await recordIncome({ profileId: profile.id, ...parsed.data })
+    transaction = await recordIncome({ profileId: profile.id, ...parsed.data })
   } catch (error) {
     return toErrorResult(error)
+  }
+
+  // "Você recebeu novos dividendos" (spec's FINIA section) — event-driven,
+  // fired right where the income is recorded rather than a poll, mirroring
+  // AlertService's own "react to the write, never re-derive later" shape.
+  // sourceKey=transaction id: each recorded income creates exactly one
+  // Transaction row, so this can never double-fire for the same entry.
+  const company = await prisma.company.findUnique({
+    where: { id: parsed.data.companyId },
+    select: { ticker: true },
+  })
+  if (company) {
+    await NotificationService.create({
+      profileId: profile.id,
+      type: parsed.data.type,
+      title: `Você recebeu ${parsed.data.type === "JCP" ? "JCP" : "dividendos"} de ${company.ticker}`,
+      body: `${parsed.data.quantity} un. × ${formatCurrencyCents(parsed.data.amountPerShareCents)} = ${formatCurrencyCents(Number(transaction.totalCents))}`,
+      companyId: parsed.data.companyId,
+      metadata: {
+        transactionId: transaction.id,
+        quantity: parsed.data.quantity,
+        amountPerShareCents: parsed.data.amountPerShareCents,
+        totalCents: transaction.totalCents.toString(),
+      },
+      sourceKey: `income:${transaction.id}`,
+    })
   }
 
   revalidatePath("/carteira")

@@ -1,6 +1,8 @@
 import "server-only"
 
+import { NotificationService } from "@/features/alerts/notifications/service"
 import { prisma } from "@/lib/prisma"
+import { formatCurrencyCents } from "@/utils/format"
 
 interface CheckAlertsForTickerParams {
   ticker: string
@@ -67,6 +69,32 @@ export const AlertService = {
       )
     }
     console.info(`[AlertService] notificação criada count=${matches.length} ticker=${ticker}`)
+
+    // Mirrors each firing into the unified bell (RadarNotification) — a
+    // side effect of the same event, never a replacement for the
+    // AlertNotification row just written above, which /alertas still reads
+    // unchanged. sourceKey embeds this exact trigger's timestamp (not just
+    // the alert id) so a later reactivation-and-retrigger of the very same
+    // PriceAlert produces a genuinely new, non-deduplicated notification.
+    const directionLabel = { ABOVE: "acima de", BELOW: "abaixo de" } as const
+    await Promise.all(
+      matches.map((match) =>
+        NotificationService.create({
+          profileId: match.profileId,
+          type: "ALERT",
+          title: `${ticker} atingiu seu preço alvo`,
+          body: `Preço atual: ${formatCurrencyCents(priceCents)} · Alvo: ${directionLabel[match.direction]} ${formatCurrencyCents(match.targetPriceCents)}`,
+          companyId,
+          metadata: {
+            alertId: match.id,
+            direction: match.direction,
+            targetPriceCents: match.targetPriceCents,
+            triggeredPriceCents: priceCents,
+          },
+          sourceKey: `alert:${match.id}:${triggeredAt.getTime()}`,
+        })
+      )
+    )
 
     return matches.length
   },

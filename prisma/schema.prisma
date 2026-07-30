@@ -677,6 +677,15 @@ model TargetAllocation {
 /// "Notícias" sections and RadarEvent rows already have a real, stable
 /// category to slot into the day a real provider is added, instead of a
 /// schema change being required later.
+///
+/// FINIA/PORTFOLIO/RADAR_OPPORTUNITY/ACHIEVEMENT added for the Central de
+/// Notificações Inteligente (the bell): FINIA backs rule-based "smart"
+/// insights (maior alta do dia, novo recorde de patrimônio — never an LLM
+/// call, see notifications/digest.ts), PORTFOLIO backs the once-daily/
+/// once-weekly resumo, RADAR_OPPORTUNITY backs a daily pick from
+/// computeOpportunities, and ACHIEVEMENT is prepared-but-unused (the spec's
+/// own "Conquistas (futuro)" — no producer exists yet, same honesty
+/// convention as EARNINGS/ASSEMBLY/IPO/TREASURY above).
 enum RadarType {
   PRICE_MOVE
   BUY
@@ -693,6 +702,10 @@ enum RadarType {
   NEWS
   INDICATOR_CHANGE
   ALERT
+  FINIA
+  PORTFOLIO
+  RADAR_OPPORTUNITY
+  ACHIEVEMENT
 }
 
 enum RadarPriority {
@@ -746,25 +759,70 @@ model RadarEvent {
   @@map("radar_events")
 }
 
-/// Prepared infrastructure for future push/in-app notifications — no send
-/// mechanism exists yet (no email/push integration), see point 14 of the
-/// Radar spec ("ainda sem envio, somente arquitetura"). A future delivery
-/// job would create rows here per (profile, event) and a real send
-/// pipeline would flip status PENDING -> PUBLISHED once delivered.
+/// The backing store for the notification bell's "Central Inteligente" —
+/// was prepared-but-unwritten infrastructure (see the removed comment that
+/// used to sit here); now the single unified feed every notification
+/// producer (AlertService, recordIncomeAction, news feed hydration,
+/// notifications/digest.ts) writes into via NotificationService.create
+/// (src/features/alerts/notifications/service.ts). PriceAlert/
+/// AlertNotification are untouched and keep backing /alertas exactly as
+/// before — an ALERT-type row here is a mirror written alongside that
+/// existing insert, never a replacement for it.
+///
+/// status stays PUBLISHED for every row (no delivery pipeline exists, so
+/// there's nothing to move it out of PENDING for) except ARCHIVED, which is
+/// the soft-delete state ("Excluir" in the bell never hard-deletes, so a
+/// wrongly-dismissed notification's history isn't destroyed).
+///
+/// `sourceKey` is the idempotency key for "the exact event that would have
+/// produced this row" (e.g. `news:{articleId}`, `dividend:{transactionId}`,
+/// `digest-daily:{date}`) — NotificationService.create no-ops if a row with
+/// the same (profileId, sourceKey) already exists, so a page reload or a
+/// re-run of a lazy "ensure" check never double-inserts. Separately,
+/// `groupCount` implements "PETR4 possui 5 novas notícias" (see spec's
+/// AGRUPAMENTO section): a NEW event for the same (profileId, type,
+/// companyId) within the grouping window updates the existing unread row
+/// (bumping groupCount, refreshing title/body/metadata/sourceKey) instead of
+/// inserting a second row — both mechanisms live together in one function
+/// because a repeat of the *same* event must never bump the count (sourceKey
+/// catches that), while a genuinely *different* event about the same asset
+/// should (the group-collapse catches that).
 model RadarNotification {
-  id        String        @id @default(uuid())
-  profileId String
-  profile   Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  type      RadarType
-  priority  RadarPriority @default(MEDIUM)
-  status    RadarStatus   @default(PENDING)
-  title     String
-  body      String?
-  companyId String?
-  company   Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt DateTime      @default(now())
+  id         String        @id @default(uuid())
+  profileId  String
+  profile    Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  type       RadarType
+  priority   RadarPriority @default(MEDIUM)
+  status     RadarStatus   @default(PENDING)
+  title      String
+  body       String?
+  companyId  String?
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Type-specific quick-action/context payload (e.g. { articleUrl } for
+  /// NEWS, { quantity, amountPerShareCents } for DIVIDEND/JCP, { direction,
+  /// targetPriceCents, triggeredPriceCents } for ALERT, { digestKind, stats }
+  /// for PORTFOLIO) — schemaless since the shape genuinely differs per type,
+  /// mirrors RadarEvent.metadata's own reasoning above.
+  metadata   Json?
+  isRead     Boolean       @default(false)
+  readAt     DateTime?
+  isPinned   Boolean       @default(false)
+  pinnedAt   DateTime?
+  /// How many distinct events have been collapsed into this row (see the
+  /// model doc above) — 1 for the common case, >1 only once a second
+  /// same-(type,companyId) event lands within the grouping window.
+  groupCount Int           @default(1)
+  /// Idempotency key — see model doc above. Null is fine (some producers,
+  /// e.g. a one-off manual insert, may not need dedup), just means this row
+  /// is never matched by a future sourceKey lookup.
+  sourceKey  String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([profileId, status, createdAt])
+  @@index([profileId, isPinned, priority, createdAt])
+  @@index([profileId, isRead])
+  @@index([profileId, sourceKey])
   @@map("radar_notifications")
 }
 

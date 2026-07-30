@@ -2,6 +2,7 @@ import "server-only"
 
 import { Prisma } from "@/generated/prisma/client"
 import { getAlertedCompanyIds } from "@/features/alerts/queries"
+import { NotificationService } from "@/features/alerts/notifications/service"
 import { getFavoriteCompanies } from "@/features/company/queries"
 import { getPortfolioSummary, type PortfolioPositionRow } from "@/features/portfolio/queries"
 import { ensureBucketsFresh, ensureCompanyBucketsFresh } from "@/features/news/news-cache-service"
@@ -213,7 +214,7 @@ async function hydrateArticles(
   ])
   const sentimentByArticleId = new Map(sentimentEntries.filter((entry): entry is [string, NewsArticleSentiment] => entry !== null))
 
-  return hydratedMatches.map(({ row, matchedCompanies, primary }) => {
+  const articleRows: NewsArticleRow[] = hydratedMatches.map(({ row, matchedCompanies, primary }) => {
     const relevance: NewsRelevance | null = primary
       ? {
           company: primary.company,
@@ -241,6 +242,36 @@ async function hydrateArticles(
       relevance,
     }
   })
+
+  // "Integração com Notícias" (bell spec) — a personalized article (owned/
+  // alerted/favorited primary company) notifies the bell too, scoped only
+  // to the requesting profile's own feed request (never a fan-out to every
+  // user on ingestion, see news-cache-service.ts's persistArticles, which
+  // runs for whichever bucket any visitor's page happened to need).
+  // sourceKey=articleId makes a repeat page load of the same article a
+  // guaranteed no-op; a second, different relevant article about the same
+  // company within the day collapses into "TICKER possui N novas notícias"
+  // via NotificationService's own group-collapse.
+  if (profileId) {
+    await Promise.all(
+      articleRows
+        .filter((article) => article.relevance != null)
+        .map((article) => {
+          const relevance = article.relevance!
+          return NotificationService.create({
+            profileId,
+            type: "NEWS",
+            title: article.title,
+            body: article.sentiment?.summary ?? article.description ?? null,
+            companyId: relevance.company.id,
+            metadata: { articleId: article.id, articleUrl: article.url },
+            sourceKey: `news:${article.id}`,
+          })
+        })
+    )
+  }
+
+  return articleRows
 }
 
 /// Offset-based pagination (cursor is just the stringified offset) rather

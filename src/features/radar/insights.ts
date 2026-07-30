@@ -325,6 +325,7 @@ export function computeOpportunities(
       if (distanceFromHighPct >= 0 && distanceFromHighPct <= FIFTY_TWO_WEEK_PROXIMITY_PCT) {
         opportunities.push({
           key: `${position.companyId}-high`,
+          companyId: position.companyId,
           text: `${position.ticker} está a ${distanceFromHighPct.toFixed(1)}% da máxima de 52 semanas.`,
           href: `/empresa/${position.ticker}`,
         })
@@ -335,6 +336,7 @@ export function computeOpportunities(
       if (distanceFromLowPct >= 0 && distanceFromLowPct <= FIFTY_TWO_WEEK_PROXIMITY_PCT) {
         opportunities.push({
           key: `${position.companyId}-low`,
+          companyId: position.companyId,
           text: `${position.ticker} está a ${distanceFromLowPct.toFixed(1)}% da mínima de 52 semanas.`,
           href: `/empresa/${position.ticker}`,
         })

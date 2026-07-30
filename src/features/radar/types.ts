@@ -54,6 +54,7 @@ export interface RadarAlert {
 
 export interface RadarOpportunity {
   key: string
+  companyId: string
   text: string
   href: string
 }
