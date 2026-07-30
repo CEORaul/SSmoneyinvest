@@ -440,6 +440,15 @@ enum AiContentKind {
   /// every reader; profileId stays null, unlike RADAR_SUMMARY/
   /// PORTFOLIO_SCORE_* which are genuinely per-user.
   NEWS_SUMMARY
+  /// Structured JSON (sentiment POSITIVE/NEUTRAL/NEGATIVE + up to 3
+  /// justification bullets + a one-line summary) generated eagerly for
+  /// every article shown on /noticias — same comparisonKey=articleId,
+  /// profileId=null scoping as NEWS_SUMMARY, but this one is never a plain
+  /// display string: callers always JSON.parse the content.
+  NEWS_SENTIMENT
+  /// "Explique como se eu fosse iniciante" on /noticias — on-demand only
+  /// (unlike NEWS_SENTIMENT), same comparisonKey=articleId scoping.
+  NEWS_BEGINNER_EXPLANATION
 }
 
 enum AiQuestionType {

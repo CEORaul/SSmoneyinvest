@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getNewsFeedAction } from "@/features/news/actions"
+import { NewsBeginnerExplanationDialog } from "@/features/news/components/NewsBeginnerExplanationDialog"
 import { NewsFeedGrid } from "@/features/news/components/NewsFeedGrid"
 import { NewsFilterBar } from "@/features/news/components/NewsFilterBar"
 import { NewsSearchBar } from "@/features/news/components/NewsSearchBar"
@@ -48,6 +49,7 @@ export function NewsPageClient({ initialTab, initialArticles, initialNextCursor 
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [summarizing, setSummarizing] = useState<NewsArticleRow | null>(null)
+  const [explaining, setExplaining] = useState<NewsArticleRow | null>(null)
 
   const requestIdRef = useRef(0)
   const skipNextFetchRef = useRef(true)
@@ -118,9 +120,11 @@ export function NewsPageClient({ initialTab, initialArticles, initialNextCursor 
         hasMore={cursor != null}
         onLoadMore={handleLoadMore}
         onSummarize={setSummarizing}
+        onExplainBeginner={setExplaining}
       />
 
       <NewsSummaryDialog article={summarizing} onOpenChange={(open) => !open && setSummarizing(null)} />
+      <NewsBeginnerExplanationDialog article={explaining} onOpenChange={(open) => !open && setExplaining(null)} />
     </div>
   )
 }

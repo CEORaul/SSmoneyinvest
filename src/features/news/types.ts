@@ -37,9 +37,72 @@ export interface NewsMatchedCompany {
   assetClass: AssetClass
   priceSource: PriceSource
   priceCents: number
+  priceChangePct: number
   isOwned: boolean
   isAlerted: boolean
   isFavorited: boolean
+}
+
+export type NewsSentimentLabel = "POSITIVE" | "NEUTRAL" | "NEGATIVE"
+
+export const NEWS_SENTIMENT_LABELS: Record<NewsSentimentLabel, string> = {
+  POSITIVE: "Positiva",
+  NEUTRAL: "Neutra",
+  NEGATIVE: "Negativa",
+}
+
+export const NEWS_SENTIMENT_EMOJI: Record<NewsSentimentLabel, string> = {
+  POSITIVE: "🟢",
+  NEUTRAL: "🟡",
+  NEGATIVE: "🔴",
+}
+
+/// FinIA's full-context classification of an article — never keyword-based
+/// (see ai-content-service.ts's getOrGenerateNewsSentiment prompt).
+/// `reasons` is capped at 3 short justification bullets; `summary` is the
+/// one-line "what happened" shown under the title. Null means generation
+/// failed or hasn't happened yet — the card simply omits the badge/line,
+/// never fabricates a sentiment.
+export interface NewsArticleSentiment {
+  sentiment: NewsSentimentLabel
+  reasons: string[]
+  summary: string
+}
+
+/// "Sua posição" sub-block — every field reused verbatim from
+/// PortfolioPositionRow, never recomputed.
+export interface NewsPositionSnapshot {
+  quantity: string
+  averagePriceCents: number
+  currentPriceCents: number
+  allocationPct: number
+}
+
+/// "Desempenho do ativo" sub-block — hoje comes straight off
+/// Company.priceChangePct; the rest are computed once per feed page from a
+/// single batched price-history call (see performance.ts), never per-card.
+/// Any entry can be null when there isn't enough history yet — rendered as
+/// "—", never estimated.
+export interface NewsPerformanceSnapshot {
+  todayPct: number | null
+  sevenDayPct: number | null
+  thirtyDayPct: number | null
+  fiftyTwoWeekPct: number | null
+}
+
+export type NewsRelevanceReason = "owned" | "alerted" | "favorited"
+
+/// The deterministic (never AI-generated) "por que esta notícia importa
+/// para mim" answer — built entirely from real, already-known data
+/// (portfolio position, alert, favorite). When an article matches several
+/// of the user's companies, this picks the single most relevant one
+/// (owned > alerted > favorited precedence) rather than showing one block
+/// per company.
+export interface NewsRelevance {
+  company: NewsMatchedCompany
+  reason: NewsRelevanceReason
+  position: NewsPositionSnapshot | null
+  performance: NewsPerformanceSnapshot
 }
 
 export interface NewsArticleRow {
@@ -56,6 +119,8 @@ export interface NewsArticleRow {
   topics: NewsTopic[]
   matchedCompanies: NewsMatchedCompany[]
   isSaved: boolean
+  sentiment: NewsArticleSentiment | null
+  relevance: NewsRelevance | null
 }
 
 export interface NewsFeedFilters {

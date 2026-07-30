@@ -15,12 +15,13 @@ interface NewsFeedGridProps {
   hasMore: boolean
   onLoadMore: () => void
   onSummarize: (article: NewsArticleRow) => void
+  onExplainBeginner: (article: NewsArticleRow) => void
 }
 
 /// Infinite scroll via useInfiniteScrollSentinel — "load more" fires
 /// automatically as the sentinel enters the viewport, no button needed
 /// (satisfies the spec's "Infinite Scroll" requirement directly).
-export function NewsFeedGrid({ articles, loading, loadingMore, hasMore, onLoadMore, onSummarize }: NewsFeedGridProps) {
+export function NewsFeedGrid({ articles, loading, loadingMore, hasMore, onLoadMore, onSummarize, onExplainBeginner }: NewsFeedGridProps) {
   const handleIntersect = useCallback(() => {
     if (hasMore && !loading && !loadingMore) onLoadMore()
   }, [hasMore, loading, loadingMore, onLoadMore])
@@ -49,7 +50,7 @@ export function NewsFeedGrid({ articles, loading, loadingMore, hasMore, onLoadMo
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {articles.map((article) => (
-          <NewsCard key={article.id} article={article} onSummarize={onSummarize} />
+          <NewsCard key={article.id} article={article} onSummarize={onSummarize} onExplainBeginner={onExplainBeginner} />
         ))}
       </div>
       {hasMore && (

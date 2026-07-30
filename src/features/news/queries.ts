@@ -3,10 +3,22 @@ import "server-only"
 import { Prisma } from "@/generated/prisma/client"
 import { getAlertedCompanyIds } from "@/features/alerts/queries"
 import { getFavoriteCompanies } from "@/features/company/queries"
-import { getPortfolioSummary } from "@/features/portfolio/queries"
+import { getPortfolioSummary, type PortfolioPositionRow } from "@/features/portfolio/queries"
 import { ensureBucketsFresh, ensureCompanyBucketsFresh } from "@/features/news/news-cache-service"
+import { computePerformanceSnapshots } from "@/features/news/performance"
+import { buildNewsFacts } from "@/features/news/facts"
+import { getNewsSentimentFromFacts } from "@/features/news/sentiment"
 import { getBucketSpecsForTab, type NewsTabKey } from "@/features/news/query-specs"
-import type { NewsArticleRow, NewsFeedFilters, NewsFeedResult, NewsMatchedCompany } from "@/features/news/types"
+import type {
+  NewsArticleRow,
+  NewsArticleSentiment,
+  NewsFeedFilters,
+  NewsFeedResult,
+  NewsMatchedCompany,
+  NewsPositionSnapshot,
+  NewsRelevance,
+  NewsRelevanceReason,
+} from "@/features/news/types"
 import { prisma } from "@/lib/prisma"
 
 const DEFAULT_LIMIT = 20
@@ -23,6 +35,7 @@ const ARTICLE_INCLUDE = {
           assetClass: true,
           priceSource: true,
           priceCents: true,
+          priceChangePct: true,
         },
       },
     },
@@ -75,17 +88,24 @@ function applySharedFilters(where: Prisma.NewsArticleWhereInput, filters: NewsFe
 }
 
 /// Personal context used to compute per-company `isOwned`/`isAlerted`/
-/// `isFavorited` flags (the card's "relevante para você" banner) on every
-/// tab — fetched once per request, not once per article.
+/// `isFavorited` flags (the card's "relevante para você" banner) plus the
+/// full position record (for the "Sua posição" block) on every tab —
+/// fetched once per request, not once per article.
 interface PersonalContext {
   ownedCompanyIds: Set<string>
   alertedCompanyIds: Set<string>
   favoritedCompanyIds: Set<string>
+  positionsByCompanyId: Map<string, PortfolioPositionRow>
 }
 
 async function getPersonalContext(profileId: string | null): Promise<PersonalContext> {
   if (!profileId) {
-    return { ownedCompanyIds: new Set(), alertedCompanyIds: new Set(), favoritedCompanyIds: new Set() }
+    return {
+      ownedCompanyIds: new Set(),
+      alertedCompanyIds: new Set(),
+      favoritedCompanyIds: new Set(),
+      positionsByCompanyId: new Map(),
+    }
   }
 
   const [portfolio, alertedIds, favorites] = await Promise.all([
@@ -94,10 +114,44 @@ async function getPersonalContext(profileId: string | null): Promise<PersonalCon
     getFavoriteCompanies(profileId),
   ])
 
+  const positionsByCompanyId = new Map(
+    portfolio.positions.filter((p) => Number(p.quantity) > 0).map((p) => [p.companyId, p] as const)
+  )
+
   return {
-    ownedCompanyIds: new Set(portfolio.positions.filter((p) => Number(p.quantity) > 0).map((p) => p.companyId)),
+    ownedCompanyIds: new Set(positionsByCompanyId.keys()),
     alertedCompanyIds: new Set(alertedIds),
     favoritedCompanyIds: new Set(favorites.map((f) => f.id)),
+    positionsByCompanyId,
+  }
+}
+
+/// Picks the single most relevant matched company for an article's "por que
+/// esta notícia importa" block, when it matches several — owned beats
+/// alerted beats favorited, since "you hold this" is a stronger reason than
+/// "you're just tracking it."
+function selectPrimaryCompany(
+  matchedCompanies: NewsMatchedCompany[]
+): { company: NewsMatchedCompany; reason: NewsRelevanceReason } | null {
+  const owned = matchedCompanies.find((c) => c.isOwned)
+  if (owned) return { company: owned, reason: "owned" }
+
+  const alerted = matchedCompanies.find((c) => c.isAlerted)
+  if (alerted) return { company: alerted, reason: "alerted" }
+
+  const favorited = matchedCompanies.find((c) => c.isFavorited)
+  if (favorited) return { company: favorited, reason: "favorited" }
+
+  return null
+}
+
+function toPositionSnapshot(position: PortfolioPositionRow | undefined): NewsPositionSnapshot | null {
+  if (!position) return null
+  return {
+    quantity: position.quantity,
+    averagePriceCents: position.averagePriceCents,
+    currentPriceCents: position.currentPriceCents,
+    allocationPct: position.allocationPct,
   }
 }
 
@@ -115,7 +169,7 @@ async function hydrateArticles(
     savedArticleIds = new Set(saved.map((row) => row.articleId))
   }
 
-  return rows.map((row) => {
+  const hydratedMatches = rows.map((row) => {
     const matchedCompanies: NewsMatchedCompany[] = row.companyLinks.map((link) => ({
       id: link.company.id,
       ticker: link.company.ticker,
@@ -124,10 +178,50 @@ async function hydrateArticles(
       assetClass: link.company.assetClass,
       priceSource: link.company.priceSource,
       priceCents: link.company.priceCents,
+      priceChangePct: Number(link.company.priceChangePct),
       isOwned: context.ownedCompanyIds.has(link.companyId),
       isAlerted: context.alertedCompanyIds.has(link.companyId),
       isFavorited: context.favoritedCompanyIds.has(link.companyId),
     }))
+
+    return { row, matchedCompanies, primary: selectPrimaryCompany(matchedCompanies) }
+  })
+
+  // "Desempenho do ativo" is batched ONCE per feed page across only the
+  // distinct primary companies actually needed (not every matched company on
+  // every card) — see performance.ts.
+  const primaryCompaniesById = new Map<string, NewsMatchedCompany>()
+  for (const { primary } of hydratedMatches) {
+    if (primary) primaryCompaniesById.set(primary.company.id, primary.company)
+  }
+
+  // Sentiment/one-line-summary: eager so the badge never waits on a click,
+  // cheap because getOrGenerateNewsSentiment is cache-first (a Gemini call
+  // only happens on a genuine cache miss) — run every article's lookup in
+  // parallel alongside the performance batch. A generation failure just
+  // means that one card omits its badge; it never breaks the feed.
+  const [performanceByCompanyId, sentimentEntries] = await Promise.all([
+    computePerformanceSnapshots([...primaryCompaniesById.values()]),
+    Promise.all(
+      rows.map(async (row): Promise<[string, NewsArticleSentiment] | null> => {
+        const facts = buildNewsFacts(row)
+        if (!facts) return null
+        const result = await getNewsSentimentFromFacts(row.id, facts)
+        return result ? [row.id, { sentiment: result.sentiment, reasons: result.reasons, summary: result.summary }] : null
+      })
+    ),
+  ])
+  const sentimentByArticleId = new Map(sentimentEntries.filter((entry): entry is [string, NewsArticleSentiment] => entry !== null))
+
+  return hydratedMatches.map(({ row, matchedCompanies, primary }) => {
+    const relevance: NewsRelevance | null = primary
+      ? {
+          company: primary.company,
+          reason: primary.reason,
+          position: toPositionSnapshot(context.positionsByCompanyId.get(primary.company.id)),
+          performance: performanceByCompanyId.get(primary.company.id)!,
+        }
+      : null
 
     return {
       id: row.id,
@@ -143,6 +237,8 @@ async function hydrateArticles(
       topics: row.topics,
       matchedCompanies,
       isSaved: savedArticleIds.has(row.id),
+      sentiment: sentimentByArticleId.get(row.id) ?? null,
+      relevance,
     }
   })
 }

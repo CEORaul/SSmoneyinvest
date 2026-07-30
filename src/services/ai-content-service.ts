@@ -521,6 +521,119 @@ export const aiContentService = {
       return null
     }
   },
+
+  /// Sentiment badge + one-line summary shown on every /noticias card —
+  /// generated eagerly (not on click) since it must render without any user
+  /// action, so this is on the hot path of every feed load. The prompt
+  /// explicitly forbids keyword-only classification (the spec's own
+  /// requirement) — it must weigh tone/context/language/described impact
+  /// together. Output is machine-readable JSON, not display prose like
+  /// NEWS_SUMMARY: the caller (features/news/sentiment.ts) parses it and
+  /// never trusts unparseable output, returning null instead of guessing.
+  async getOrGenerateNewsSentiment(
+    articleId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "NEWS_SENTIMENT" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: articleId,
+        profileId: null,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await AIService.generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          "Classifique o sentimento geral desta notícia financeira, considerando o tom geral, o " +
+          "contexto, a linguagem utilizada e o impacto descrito em conjunto — nunca classifique " +
+          "apenas por palavras-chave isoladas. Responda APENAS com um JSON válido, sem markdown, " +
+          'sem texto antes ou depois, exatamente neste formato: {"sentiment":"POSITIVE"|"NEUTRAL"' +
+          '|"NEGATIVE","reasons":["...","..."],"summary":"..."}. "reasons" deve conter no máximo 3 ' +
+          "frases curtas e objetivas que justifiquem a classificação, baseadas apenas no texto " +
+          'abaixo. "summary" deve ser uma única frase extremamente curta resumindo o fato principal ' +
+          "da notícia. Nunca inclua recomendação de compra ou venda em nenhum campo. Notícia:\n" +
+          facts.join("\n"),
+        maxTokens: 350,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// "Explique como se eu fosse iniciante" — on-demand only (unlike
+  /// NEWS_SENTIMENT), same per-article cache shape.
+  async getOrGenerateBeginnerExplanation(
+    articleId: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "NEWS_BEGINNER_EXPLANATION" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: articleId,
+        profileId: null,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await AIService.generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          "Explique esta notícia financeira em linguagem extremamente simples, como se fosse para " +
+          "alguém que nunca investiu antes. Traduza qualquer termo técnico (ex.: guidance, EBITDA, " +
+          "M&A, payout, alavancagem) para uma explicação curta em português claro, sem jargão. " +
+          "Use frases curtas e exemplos do dia a dia quando ajudar a entender. Baseie-se apenas no " +
+          "texto abaixo — nunca invente fatos que não estejam nele — e nunca recomende comprar ou " +
+          `vender qualquer ativo:\n${facts.join("\n")}`,
+        maxTokens: 500,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: { content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt(), generatedAt: new Date() },
+          })
+        : await prisma.aiContent.create({
+            data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
 }
 
 function toComparisonKey(companies: CompanyDetailDTO[]): string {

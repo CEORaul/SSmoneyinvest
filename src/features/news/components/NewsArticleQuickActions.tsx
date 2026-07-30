@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { CreateAlertDialog } from "@/features/alerts/components/CreateAlertDialog"
 import { toggleFavoriteAction } from "@/features/company/actions"
+import { NewsImpactBadges } from "@/features/news/components/NewsImpactBadges"
 import type { NewsMatchedCompany } from "@/features/news/types"
 import { TradeDialog } from "@/features/portfolio/components/TradeDialog"
 import type { CompanySearchResult } from "@/features/portfolio/queries"
@@ -110,11 +110,7 @@ export function NewsArticleQuickActions({ company }: NewsArticleQuickActionsProp
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {(company.isOwned || company.isAlerted || favorited) && (
-        <Badge variant="outline" className="ml-0.5">
-          Relevante
-        </Badge>
-      )}
+      <NewsImpactBadges isOwned={company.isOwned} isAlerted={company.isAlerted} isFavorited={favorited} />
 
       <TradeDialog type="BUY" company={searchResult} open={tradeOpen} onOpenChange={setTradeOpen} />
       <CreateAlertDialog open={alertOpen} onOpenChange={setAlertOpen} onSaved={() => setAlertOpen(false)} initialCompany={searchResult} />

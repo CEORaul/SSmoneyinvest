@@ -1,6 +1,7 @@
 "use server"
 
 import { getAlertedCompanyIds } from "@/features/alerts/queries"
+import { getBeginnerExplanation } from "@/features/news/beginner-explanation"
 import { getBucketFeed, getCompanyScopedFeed, getOwnedCompanyIds, getSavedArticles, toggleSavedArticle } from "@/features/news/queries"
 import type { NewsTabKey } from "@/features/news/query-specs"
 import { getNewsSummary } from "@/features/news/summary"
@@ -65,6 +66,17 @@ export async function requestNewsSummaryAction(
 
   const result = await getNewsSummary(articleId)
   if (!result) return { ok: false, error: "Não há texto suficiente nesta notícia para gerar um resumo." }
+
+  return { ok: true, text: result.text, generatedAt: result.generatedAt.toISOString() }
+}
+
+export async function requestBeginnerExplanationAction(
+  articleId: string
+): Promise<{ ok: boolean; text?: string; generatedAt?: string; error?: string }> {
+  await requireUser()
+
+  const result = await getBeginnerExplanation(articleId)
+  if (!result) return { ok: false, error: "Não há texto suficiente nesta notícia para gerar uma explicação." }
 
   return { ok: true, text: result.text, generatedAt: result.generatedAt.toISOString() }
 }
