@@ -24,6 +24,7 @@ export type ChartWidgetKind =
   | "ADVANCED_CHART"
   | "MARKET_OVERVIEW"
   | "HEATMAP"
+  | "CRYPTO_HEATMAP"
   | "TICKER_TAPE"
 
 /// Which concrete engine renders a chart — "internal" is SSmoney's own

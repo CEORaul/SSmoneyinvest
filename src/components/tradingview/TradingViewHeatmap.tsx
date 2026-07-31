@@ -10,11 +10,17 @@ import { TradingViewFallback } from "@/lib/tradingview/fallback"
 import { useChartTheme } from "@/lib/tradingview/theme"
 
 interface TradingViewHeatmapProps {
-  /// TradingView's own fixed Stock Heatmap universe name (e.g. "AllUSA",
-  /// "Crypto") — this component never guesses one; category-switching
+  /// TradingView's own fixed Stock Heatmap universe name (e.g. "SPX500",
+  /// "AllUSA") — this component never guesses one; category-switching
   /// (Ações/FIIs/ETFs/Cripto) is the caller's job, picking which
-  /// `dataSource` (or fallback) to render per selected tab.
+  /// `dataSource` (or fallback) to render per selected tab. Ignored when
+  /// `kind` is "CRYPTO_HEATMAP" (that widget has its own fixed universe).
   dataSource: string
+  /// "HEATMAP" (default) is the Stock Heatmap widget; "CRYPTO_HEATMAP" is
+  /// the separate, dedicated Crypto Coins Heatmap widget — NOT the same
+  /// widget with a crypto `dataSource` (TradingView has no such value on
+  /// the stock widget; see TradingViewProvider's own doc comment on this).
+  kind?: "HEATMAP" | "CRYPTO_HEATMAP"
   fallback?: ReactNode
   className?: string
   height?: number | string
@@ -26,7 +32,13 @@ type MountState = "idle" | "loading" | "ready" | "error"
 /// variação, block size proportional to market cap (both are the widget's
 /// own built-in behavior, not something this app computes). Same lazy-
 /// mount/skeleton/fallback shape as TradingViewAdvancedChart.
-export function TradingViewHeatmap({ dataSource, fallback, className, height = 420 }: TradingViewHeatmapProps) {
+export function TradingViewHeatmap({
+  dataSource,
+  kind = "HEATMAP",
+  fallback,
+  className,
+  height = 420,
+}: TradingViewHeatmapProps) {
   const theme = useChartTheme()
   const [containerRef, isVisible] = useIsVisibleOnce<HTMLDivElement>()
   const [state, setState] = useState<MountState>("idle")
@@ -39,7 +51,7 @@ export function TradingViewHeatmap({ dataSource, fallback, className, height = 4
     let cancelled = false
     setState("loading")
 
-    const config = ChartService.buildConfig({ kind: "HEATMAP", theme, height, params: { dataSource } })
+    const config = ChartService.buildConfig({ kind, theme, height, params: { dataSource } })
 
     Promise.resolve(ChartService.mount(container, config))
       .then(() => {
@@ -56,7 +68,7 @@ export function TradingViewHeatmap({ dataSource, fallback, className, height = 4
     // containerRef is a stable ref object; height never changes
     // independently of a real remount trigger here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible, dataSource, theme])
+  }, [isVisible, dataSource, kind, theme])
 
   if (!ChartService.isAvailable()) {
     return (

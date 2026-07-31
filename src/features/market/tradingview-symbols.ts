@@ -79,17 +79,31 @@ export const MARKET_OVERVIEW_TABS: MarketOverviewTab[] = [
   },
 ]
 
-/// Heatmap category tabs — Mercado 2.0's own tab UI decides which
-/// dataSource (or honest fallback) to render per tab; only "Cripto" gets a
-/// confirmed-valid free-widget dataSource today. Ações/FIIs/ETFs are kept
-/// here as documented uncertainty (TradingView's free Stock Heatmap widget
-/// has no confirmed Brazil-only universe) rather than silently guessed —
-/// components must treat a null dataSource as "show fallback," never crash.
-export const HEATMAP_DATA_SOURCES: Record<"ACOES" | "FIIS" | "ETFS" | "CRIPTO", string | null> = {
+export interface HeatmapConfig {
+  kind: "HEATMAP" | "CRYPTO_HEATMAP"
+  dataSource: string
+}
+
+/// Heatmap category tabs — Mercado 2.0's own tab UI decides which config
+/// (or honest fallback) to render per tab.
+///
+/// CRIPTO uses TradingView's dedicated Crypto Coins Heatmap widget (a
+/// DIFFERENT free widget/script than the Stock Heatmap, not the same one
+/// with a "Crypto" dataSource — that value doesn't exist on the stock
+/// widget; feeding it there is what silently rendered a US stock universe
+/// before this was fixed). ACOES/FIIS/ETFS stay null: TradingView's free
+/// Stock Heatmap widget has no confirmed Brazil-only `dataSource` universe
+/// (its named universes are US/global indices — "SPX500", "AllUSA", etc.),
+/// and its `exchanges` filter narrows WITHIN a chosen dataSource rather
+/// than replacing it, so pairing it with "BMFBOVESPA" while dataSource
+/// stays US-scoped would just render empty — the exact same class of
+/// silent-wrong-data bug this file's CRIPTO fix just corrected. Left as
+/// documented uncertainty rather than a second guess.
+export const HEATMAP_DATA_SOURCES: Record<"ACOES" | "FIIS" | "ETFS" | "CRIPTO", HeatmapConfig | null> = {
   ACOES: null,
   FIIS: null,
   ETFS: null,
-  CRIPTO: "Crypto",
+  CRIPTO: { kind: "CRYPTO_HEATMAP", dataSource: "Crypto" },
 }
 
 /// Índices — real market indices with no Company row in this app, so the

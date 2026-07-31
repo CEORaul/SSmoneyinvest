@@ -18,18 +18,19 @@ const CATEGORY_LABELS: Record<HeatmapCategory, string> = {
 }
 
 /// Mercado 2.0's "Mapa de Calor" — color proportional to variação, block
-/// size proportional to Market Cap, both native to the official Stock
-/// Heatmap widget. Category switching is this component's own job (the
-/// widget itself takes a single fixed dataSource) — only "Cripto" has a
-/// confirmed-valid free-widget universe today; Ações/FIIs/ETFs show an
-/// honest "em breve" state instead of a guessed dataSource that might
-/// silently render the wrong market. Clicking a tile inside the widget is
-/// controlled by TradingView's own sealed iframe and does not navigate to
-/// this app's /empresa/[ticker] — a known limitation of the free widget,
-/// not something this component can work around.
+/// size proportional to Market Cap, both native to the official heatmap
+/// widgets. Category switching is this component's own job — CRIPTO mounts
+/// TradingView's dedicated Crypto Coins Heatmap widget (see
+/// HEATMAP_DATA_SOURCES' own doc comment for why that's a different widget
+/// kind, not just a different dataSource); Ações/FIIs/ETFs show an honest
+/// "em breve" state instead of a guessed Stock Heatmap dataSource that
+/// might silently render the wrong market. Clicking a tile inside either
+/// widget is controlled by TradingView's own sealed iframe and does not
+/// navigate to this app's /empresa/[ticker] — a known limitation of the
+/// free widgets, not something this component can work around.
 export function MarketHeatmapSection() {
   const [category, setCategory] = useState<HeatmapCategory>("CRIPTO")
-  const dataSource = HEATMAP_DATA_SOURCES[category]
+  const config = HEATMAP_DATA_SOURCES[category]
 
   return (
     <Card>
@@ -49,8 +50,8 @@ export function MarketHeatmapSection() {
         </Tabs>
       </CardHeader>
       <CardContent>
-        {dataSource ? (
-          <TradingViewHeatmap dataSource={dataSource} height={420} />
+        {config ? (
+          <TradingViewHeatmap dataSource={config.dataSource} kind={config.kind} height={420} />
         ) : (
           <div className="flex h-[420px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-center">
             <p className="text-sm font-medium">Mapa de calor de {CATEGORY_LABELS[category]} em breve</p>

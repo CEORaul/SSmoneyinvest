@@ -79,8 +79,10 @@ function mountMarketOverview(container: HTMLElement, config: ChartRenderConfig):
 }
 
 /// Stock Heatmap Widget — `dataSource` is TradingView's own fixed universe
-/// name (e.g. "AllUSA", "Crypto"), passed via `config.params.dataSource`;
-/// this file never guesses one on its own.
+/// name (e.g. "SPX500", "AllUSA"; NOT "Crypto" — that value only exists on
+/// the separate Crypto Coins Heatmap widget below, feeding it here just
+/// silently falls back to the widget's own default), passed via
+/// `config.params.dataSource`; this file never guesses one on its own.
 function mountHeatmap(container: HTMLElement, config: ChartRenderConfig): Promise<void> {
   const dataSource = config.params?.dataSource
   if (typeof dataSource !== "string" || dataSource.length === 0) {
@@ -92,6 +94,32 @@ function mountHeatmap(container: HTMLElement, config: ChartRenderConfig): Promis
     grouping: "sector",
     blockSize: "market_cap_basic",
     blockColor: "change",
+    locale: toTradingViewLocale(config.locale),
+    symbolUrl: "",
+    colorTheme: config.theme,
+    hasTopBar: false,
+    isDataSetEnabled: false,
+    isZoomEnabled: true,
+    hasSymbolTooltip: true,
+    isMonoSize: false,
+    width: "100%",
+    height: "100%",
+  })
+}
+
+/// Crypto Coins Heatmap Widget — a DIFFERENT free widget/script than the
+/// Stock Heatmap above, not the same widget with a different `dataSource`.
+/// TradingView's own stock-heatmap bundle only recognizes stock/country
+/// universes ("SPX500", "AllUSA", ...) — feeding it "Crypto" is silently
+/// ignored and it falls back to its default (SPX500), which is exactly the
+/// bug this widget fixes: crypto needs `embed-widget-crypto-coins-heatmap.js`,
+/// whose own config shape has no `exchanges`/`grouping`, just `dataSource`
+/// (fixed at "Crypto", its only real value) and its own `blockColor` scale.
+function mountCryptoHeatmap(container: HTMLElement, config: ChartRenderConfig): Promise<void> {
+  return injectTradingViewWidget(container, `${SCRIPT_BASE}/embed-widget-crypto-coins-heatmap.js`, {
+    dataSource: "Crypto",
+    blockSize: "market_cap_calc",
+    blockColor: "24h_close_change|5",
     locale: toTradingViewLocale(config.locale),
     symbolUrl: "",
     colorTheme: config.theme,
@@ -146,6 +174,8 @@ export const tradingViewProvider: ChartProvider = {
         return mountMarketOverview(container, config)
       case "HEATMAP":
         return mountHeatmap(container, config)
+      case "CRYPTO_HEATMAP":
+        return mountCryptoHeatmap(container, config)
       case "TICKER_TAPE":
         return mountTickerTape(container, config)
       default:
