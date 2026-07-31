@@ -25,6 +25,7 @@ export interface GlobalSearchResult {
   sector: string | null
   priceCents: number
   changePct: number
+  volume: bigint | null
 }
 
 const SEARCH_RESULT_SELECT = {
@@ -36,6 +37,7 @@ const SEARCH_RESULT_SELECT = {
   sector: true,
   priceCents: true,
   priceChangePct: true,
+  volume: true,
 } as const
 
 type SearchResultRow = {
@@ -47,6 +49,7 @@ type SearchResultRow = {
   sector: string | null
   priceCents: number
   priceChangePct: unknown
+  volume: bigint | null
 }
 
 function toGlobalSearchResult(row: SearchResultRow): GlobalSearchResult {
@@ -59,6 +62,7 @@ function toGlobalSearchResult(row: SearchResultRow): GlobalSearchResult {
     sector: row.sector,
     priceCents: row.priceCents,
     changePct: Number(row.priceChangePct),
+    volume: row.volume,
   }
 }
 
@@ -221,12 +225,14 @@ export async function getTopByVolume(limit = 6): Promise<CompanyListItem[]> {
     take: limit,
   })
   return companies.map((company) => ({
+    id: company.id,
     ticker: company.ticker,
     name: company.name,
     logoUrl: company.logoUrl,
     priceCents: company.priceCents,
     changePct: Number(company.priceChangePct),
     dividendYield: 0,
+    volume: company.volume,
   }))
 }
 

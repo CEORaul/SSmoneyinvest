@@ -42,6 +42,18 @@ interface MarketDiscoveryBoardProps {
   initialTotalCount: number
   initialSavedFilters: SavedMarketFilterSummary[]
   isAuthenticated: boolean
+  /// Overrides DEFAULT_MARKET_FILTERS for this mount — Mercado 2.0's quick
+  /// filters (Ações/FIIs/Favoritos/Minha Carteira/...) select one of these
+  /// and remount the board with a fresh `key`, the same "server already
+  /// fetched exactly this state" contract the component already relies on
+  /// for its own first render.
+  initialFilters?: MarketFilters
+  /// True (default) when initialRows/initialTotalCount were already fetched
+  /// server-side for initialFilters (page.tsx's own default-filters fetch).
+  /// Mercado 2.0's quick filters remount this component with a fresh `key`
+  /// and a client-only filter selection with no matching server fetch —
+  /// they pass false so the mount-time effect actually runs and fetches.
+  skipInitialFetch?: boolean
 }
 
 /// Owns every piece of /mercado's interactive state (filters, sort, page,
@@ -56,8 +68,10 @@ export function MarketDiscoveryBoard({
   initialTotalCount,
   initialSavedFilters,
   isAuthenticated,
+  initialFilters = DEFAULT_MARKET_FILTERS,
+  skipInitialFetch = true,
 }: MarketDiscoveryBoardProps) {
-  const [filters, setFilters] = useState<MarketFilters>(DEFAULT_MARKET_FILTERS)
+  const [filters, setFilters] = useState<MarketFilters>(initialFilters)
   const [sort, setSort] = useState<MarketSortOption>("relevancia")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -94,8 +108,9 @@ export function MarketDiscoveryBoard({
 
   // The server already fetched exactly this state (default filters,
   // "relevancia", page 1) for the initial render — skip the mount-time run
-  // so the client never re-issues a query the server just made.
-  const isFirstRun = useRef(true)
+  // so the client never re-issues a query the server just made. Skipped
+  // entirely when skipInitialFetch is false (see its own doc comment).
+  const isFirstRun = useRef(skipInitialFetch)
   useEffect(() => {
     if (isFirstRun.current) {
       isFirstRun.current = false

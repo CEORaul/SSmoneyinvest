@@ -449,6 +449,11 @@ enum AiContentKind {
   /// "Explique como se eu fosse iniciante" on /noticias — on-demand only
   /// (unlike NEWS_SENTIMENT), same comparisonKey=articleId scoping.
   NEWS_BEGINNER_EXPLANATION
+  /// "Resumo do Mercado Hoje" on /mercado (Mercado 2.0) — global like
+  /// NEWS_SUMMARY (profileId=null, identical for every reader), keyed by
+  /// comparisonKey holding today's date (America/Sao_Paulo) so it
+  /// regenerates once per day rather than per sourceHash change alone.
+  MARKET_SUMMARY
 }
 
 enum AiQuestionType {

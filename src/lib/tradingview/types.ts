@@ -65,6 +65,12 @@ export interface ChartRenderConfig {
   timezone: string
   size: ChartSize
   interval?: ChartInterval
+  /// Escape hatch for widget-specific config that doesn't belong in the
+  /// shared shape above (e.g. Market Overview's own `tabs`, Heatmap's own
+  /// `dataSource`) — kept schemaless on purpose since it's inherently
+  /// per-widget-kind; a provider that doesn't understand a given key simply
+  /// ignores it, same reasoning as RadarEvent.metadata elsewhere in this app.
+  params?: Record<string, unknown>
 }
 
 /// The SOLID strategy contract every chart engine implements identically.

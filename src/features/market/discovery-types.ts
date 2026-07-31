@@ -3,6 +3,8 @@ import type { AssetClass, PriceSource } from "@/generated/prisma/client"
 /// Shared shapes for /mercado — kept separate from discovery-queries.ts so
 /// client components can import types without pulling in "server-only" code.
 
+export type MarketScope = "all" | "favorites" | "alerts" | "portfolio"
+
 export interface MarketFilters {
   categoria: AssetClass | "TODOS"
   setor: string | ""
@@ -15,6 +17,16 @@ export interface MarketFilters {
   liquidezMin: number | null
   marketCapMinCents: number | null
   pagadoraDividendos: boolean
+  /// Cross-cutting profile-scoped view — "favorites"/"alerts"/"portfolio"
+  /// restrict results to companies the signed-in user already favorited/
+  /// has a price alert on/holds, on top of whatever categoria/other
+  /// filters are also set. Backs Mercado 2.0's "Favoritos"/"Monitor de
+  /// Ativos"/"Minha Carteira" quick filters — "Monitor de Ativos" maps to
+  /// "alerts" since that standalone feature was removed from this app
+  /// earlier (see src/lib/tradingview/integration-map.ts's own note on the
+  /// same substitution). Anonymous visitors (no profileId passed to
+  /// searchMarketAssets) always see "all" regardless of this value.
+  scope: MarketScope
 }
 
 export const DEFAULT_MARKET_FILTERS: MarketFilters = {
@@ -29,6 +41,7 @@ export const DEFAULT_MARKET_FILTERS: MarketFilters = {
   liquidezMin: null,
   marketCapMinCents: null,
   pagadoraDividendos: false,
+  scope: "all",
 }
 
 /// Filters the spec asks for that have no real backing data source yet

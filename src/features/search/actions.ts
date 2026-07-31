@@ -69,6 +69,7 @@ export async function getSearchDropdownDefaultsAction(): Promise<SearchDropdownD
       sector: company.sector,
       priceCents: company.priceCents,
       changePct: company.changePct,
+      volume: company.volume ?? null,
     })),
     portfolio: (portfolioSummary?.positions ?? []).slice(0, 8).map((position) => ({
       id: position.companyId,
@@ -79,6 +80,7 @@ export async function getSearchDropdownDefaultsAction(): Promise<SearchDropdownD
       sector: null,
       priceCents: position.currentPriceCents,
       changePct: position.priceChangePct,
+      volume: null,
     })),
     recentSearches,
     recentViews,

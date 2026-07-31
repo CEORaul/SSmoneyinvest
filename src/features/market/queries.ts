@@ -7,21 +7,25 @@ import { prisma } from "@/lib/prisma"
 import type { CompanyListItem } from "@/types"
 
 interface CompanyRow {
+  id: string
   ticker: string
   name: string
   logoUrl: string | null
   priceCents: number
   priceChangePct: unknown
+  volume: bigint | null
 }
 
 function toListItem(company: CompanyRow, dividendYield = 0): CompanyListItem {
   return {
+    id: company.id,
     ticker: company.ticker,
     name: company.name,
     logoUrl: company.logoUrl,
     priceCents: company.priceCents,
     changePct: Number(company.priceChangePct),
     dividendYield,
+    volume: company.volume,
   }
 }
 
@@ -100,12 +104,14 @@ export async function getPopularCompanies(limit = 7): Promise<CompanyListItem[]>
   const trending = await getTrendingAssets(limit)
   if (trending.length > 0) {
     return trending.map((company) => ({
+      id: company.id,
       ticker: company.ticker,
       name: company.name,
       logoUrl: company.logoUrl,
       priceCents: company.priceCents,
       changePct: company.changePct,
       dividendYield: 0,
+      volume: company.volume,
     }))
   }
 

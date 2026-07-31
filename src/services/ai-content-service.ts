@@ -22,6 +22,10 @@ const RADAR_CACHE_TTL_HOURS = 20
 // any real change (a buy/sell, a new position), this just caps staleness
 // for an otherwise-unchanged portfolio.
 const SCORE_CACHE_TTL_HOURS = 24
+// "Resumo do Mercado Hoje" — comparisonKey already scopes this to one row
+// per calendar day (America/Sao_Paulo), so this TTL is a pure safety cap,
+// not the primary invalidation path.
+const MARKET_SUMMARY_CACHE_TTL_HOURS = 24
 
 /// "O que é?"/"Como calcular?" answers don't depend on this specific
 /// company's numbers — they're cached once per (assetClass, indicatorKey)
@@ -627,6 +631,74 @@ export const aiContentService = {
           })
         : await prisma.aiContent.create({
             data: { ...cacheWhere, content: text, model: AI_MODEL, sourceHash, expiresAt: expiresAt() },
+          })
+
+      return { text: saved.content, generatedAt: saved.generatedAt }
+    } catch {
+      return null
+    }
+  },
+
+  /// "Resumo do Mercado Hoje" on /mercado (Mercado 2.0) — global like
+  /// NEWS_SUMMARY (profileId=null, identical for every reader), keyed by
+  /// comparisonKey holding today's date (America/Sao_Paulo) instead of an
+  /// article/company id, so it naturally regenerates once per day. `facts`
+  /// is built by the caller (features/market/market-summary.ts) from data
+  /// it already fetched (maiores altas/baixas, destaques) — this function
+  /// never queries the market itself. Never a buy/sell recommendation.
+  async getOrGenerateMarketSummary(
+    dateKey: string,
+    facts: string[]
+  ): Promise<{ text: string; generatedAt: Date } | null> {
+    try {
+      if (facts.length === 0) return null
+
+      const sourceHash = hashInputs(facts)
+      const cacheWhere = {
+        companyId: null,
+        kind: "MARKET_SUMMARY" as const,
+        assetClass: null,
+        indicatorKey: null,
+        questionType: null,
+        comparisonKey: dateKey,
+        profileId: null,
+      }
+
+      const cached = await prisma.aiContent.findFirst({ where: cacheWhere })
+      if (cached && isFresh(cached, sourceHash)) {
+        return { text: cached.content, generatedAt: cached.generatedAt }
+      }
+
+      const text = await AIService.generateText({
+        system: SYSTEM_PERSONA,
+        prompt:
+          'Escreva um "Resumo do Mercado Hoje" de 3 a 5 frases sobre o mercado financeiro brasileiro, ' +
+          "com base apenas nos dados fornecidos abaixo (maiores altas, maiores baixas, destaques do " +
+          "dia). Use um tom informativo e direto, como um noticiário de mercado. Esta é uma análise " +
+          "puramente informativa — nunca recomende comprar, vender ou ajustar qualquer ativo, e nunca " +
+          `mencione dados que não estejam listados abaixo:\n${facts.join("\n")}`,
+        maxTokens: 350,
+      })
+
+      const saved = cached
+        ? await prisma.aiContent.update({
+            where: { id: cached.id },
+            data: {
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + MARKET_SUMMARY_CACHE_TTL_HOURS * 60 * 60 * 1000),
+              generatedAt: new Date(),
+            },
+          })
+        : await prisma.aiContent.create({
+            data: {
+              ...cacheWhere,
+              content: text,
+              model: AI_MODEL,
+              sourceHash,
+              expiresAt: new Date(Date.now() + MARKET_SUMMARY_CACHE_TTL_HOURS * 60 * 60 * 1000),
+            },
           })
 
       return { text: saved.content, generatedAt: saved.generatedAt }

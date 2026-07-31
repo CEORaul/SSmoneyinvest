@@ -1,39 +1,79 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { useEffect, useState } from "react"
 
+import { Skeleton } from "@/components/ui/skeleton"
+import { useIsVisibleOnce } from "@/hooks/use-is-visible-once"
+import { ChartService } from "@/lib/tradingview/chart-service"
 import { TradingViewFallback } from "@/lib/tradingview/fallback"
 import { useChartTheme } from "@/lib/tradingview/theme"
-import { TradingViewService } from "@/lib/tradingview/service"
-import { buildChartRenderConfig } from "@/lib/tradingview/utils"
 
 interface TradingViewHeatmapProps {
-  tickers?: string[]
+  /// TradingView's own fixed Stock Heatmap universe name (e.g. "AllUSA",
+  /// "Crypto") — this component never guesses one; category-switching
+  /// (Ações/FIIs/ETFs/Cripto) is the caller's job, picking which
+  /// `dataSource` (or fallback) to render per selected tab.
+  dataSource: string
   fallback?: ReactNode
   className?: string
   height?: number | string
 }
 
-/// A sector/market heatmap — no direct existing SSmoney equivalent today,
-/// so this renders "Coming Soon" unless a caller explicitly passes
-/// `fallback`. Multi-symbol, same shape as TradingViewMarketOverview.
-export function TradingViewHeatmap({ tickers = [], fallback, className, height = 400 }: TradingViewHeatmapProps) {
-  const theme = useChartTheme()
-  const config = buildChartRenderConfig({
-    kind: "HEATMAP",
-    theme,
-    symbols: tickers.map((ticker) => ({ ticker })),
-    height,
-  })
+type MountState = "idle" | "loading" | "ready" | "error"
 
-  if (TradingViewService.isAvailable()) {
-    void config
-    return null
+/// The official free Stock Heatmap Widget — color proportional to
+/// variação, block size proportional to market cap (both are the widget's
+/// own built-in behavior, not something this app computes). Same lazy-
+/// mount/skeleton/fallback shape as TradingViewAdvancedChart.
+export function TradingViewHeatmap({ dataSource, fallback, className, height = 420 }: TradingViewHeatmapProps) {
+  const theme = useChartTheme()
+  const [containerRef, isVisible] = useIsVisibleOnce<HTMLDivElement>()
+  const [state, setState] = useState<MountState>("idle")
+
+  useEffect(() => {
+    if (!isVisible) return
+    const container = containerRef.current
+    if (!container) return
+
+    let cancelled = false
+    setState("loading")
+
+    const config = ChartService.buildConfig({ kind: "HEATMAP", theme, height, params: { dataSource } })
+
+    Promise.resolve(ChartService.mount(container, config))
+      .then(() => {
+        if (!cancelled) setState("ready")
+      })
+      .catch(() => {
+        if (!cancelled) setState("error")
+      })
+
+    return () => {
+      cancelled = true
+      ChartService.unmount(container)
+    }
+    // containerRef is a stable ref object; height never changes
+    // independently of a real remount trigger here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, dataSource, theme])
+
+  if (!ChartService.isAvailable()) {
+    return (
+      <TradingViewFallback height={height} className={className}>
+        {fallback}
+      </TradingViewFallback>
+    )
   }
 
   return (
-    <TradingViewFallback height={config.size.height} className={className}>
-      {fallback}
-    </TradingViewFallback>
+    <div role="region" aria-label="Mapa de calor do mercado" className={className}>
+      <div ref={containerRef} style={{ height }} className="relative w-full overflow-hidden rounded-lg">
+        {(state === "idle" || state === "loading") && (
+          <Skeleton className="absolute inset-0 size-full rounded-lg" aria-hidden />
+        )}
+        {state === "error" && <div className="absolute inset-0">{fallback ?? <TradingViewFallback height={height} />}</div>}
+      </div>
+    </div>
   )
 }

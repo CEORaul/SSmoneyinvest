@@ -39,7 +39,7 @@ const SEARCH_DEBOUNCE_MS = 250
 /// (anonymous visitor's localStorage history) alike. `sector` is the only
 /// field the latter doesn't carry, so it's optional here rather than
 /// fabricated.
-type SearchRowData = Omit<GlobalSearchResult, "sector"> & { sector?: string | null }
+type SearchRowData = Omit<GlobalSearchResult, "sector" | "volume"> & { sector?: string | null; volume?: bigint | null }
 
 interface FlatItem {
   key: string

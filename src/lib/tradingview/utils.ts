@@ -101,6 +101,7 @@ export function buildChartRenderConfig(input: {
   symbol?: ChartSymbol
   symbols?: ChartSymbol[]
   height?: number | string
+  params?: Record<string, unknown>
 }): ChartRenderConfig {
   return {
     kind: input.kind,
@@ -110,5 +111,6 @@ export function buildChartRenderConfig(input: {
     locale: DEFAULT_CHART_LOCALE,
     timezone: DEFAULT_CHART_TIMEZONE,
     size: { width: DEFAULT_CHART_SIZE.width, height: input.height ?? DEFAULT_CHART_SIZE.height },
+    params: input.params,
   }
 }

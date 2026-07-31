@@ -1,7 +1,10 @@
 import "server-only"
 
 import { Prisma, type AssetClass } from "@/generated/prisma/client"
+import { getAlertedCompanyIds } from "@/features/alerts/queries"
+import { getFavoriteCompanies } from "@/features/company/queries"
 import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
+import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { prisma } from "@/lib/prisma"
 import type { MarketAssetRow, MarketFilters, MarketSearchResult, MarketSortOption } from "@/features/market/discovery-types"
 
@@ -40,7 +43,28 @@ function needsInMemoryPath(filters: MarketFilters, sort: MarketSortOption): bool
   )
 }
 
-function buildWhere(filters: MarketFilters): Prisma.CompanyWhereInput {
+/// Resolves a MarketFilters.scope into the concrete set of company ids it
+/// restricts results to — null means "no restriction" (scope "all", or a
+/// profile-scoped value requested by an anonymous visitor, who has no
+/// favorites/alerts/portfolio to restrict to in the first place). Reuses
+/// each feature's own existing query rather than re-deriving "which
+/// companies does this profile favorite/alert/hold."
+async function resolveScopeCompanyIds(scope: MarketFilters["scope"], profileId: string | null): Promise<string[] | null> {
+  if (scope === "all" || !profileId) return null
+
+  switch (scope) {
+    case "favorites":
+      return (await getFavoriteCompanies(profileId)).map((c) => c.id)
+    case "alerts":
+      return getAlertedCompanyIds(profileId)
+    case "portfolio": {
+      const { positions } = await getPortfolioSummary(profileId)
+      return [...new Set(positions.filter((p) => Number(p.quantity) > 0).map((p) => p.companyId))]
+    }
+  }
+}
+
+function buildWhere(filters: MarketFilters, scopeCompanyIds: string[] | null): Prisma.CompanyWhereInput {
   const and: Prisma.CompanyWhereInput[] = []
 
   if (filters.categoria !== "TODOS") and.push({ assetClass: filters.categoria as AssetClass })
@@ -62,6 +86,7 @@ function buildWhere(filters: MarketFilters): Prisma.CompanyWhereInput {
     })
   }
   if (filters.roeMinPct != null) and.push({ stock: { is: { roe: { gte: filters.roeMinPct } } } })
+  if (scopeCompanyIds != null) and.push({ id: { in: scopeCompanyIds } })
 
   return and.length > 0 ? { priceCents: { gt: 0 }, AND: and } : { priceCents: { gt: 0 } }
 }
@@ -156,9 +181,18 @@ export async function searchMarketAssets(
   filters: MarketFilters,
   sort: MarketSortOption,
   page: number,
-  pageSize: number
+  pageSize: number,
+  profileId: string | null = null
 ): Promise<MarketSearchResult> {
-  const where = buildWhere(filters)
+  const scopeCompanyIds = await resolveScopeCompanyIds(filters.scope, profileId)
+  if (scopeCompanyIds != null && scopeCompanyIds.length === 0) {
+    // No round trip to Postgres for "restrict to a profile-scoped list
+    // that's empty" — `in: []` would correctly match nothing anyway, but
+    // this skips the query entirely instead of relying on that.
+    return { rows: [], totalCount: 0 }
+  }
+
+  const where = buildWhere(filters, scopeCompanyIds)
 
   if (!needsInMemoryPath(filters, sort)) {
     const [totalCount, companies] = await Promise.all([

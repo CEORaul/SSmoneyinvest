@@ -10,7 +10,7 @@ import type {
   MarketSortOption,
   SavedMarketFilterSummary,
 } from "@/features/market/discovery-types"
-import { requireUser } from "@/lib/auth/session"
+import { getOptionalProfile, requireUser } from "@/lib/auth/session"
 
 export async function searchMarketAssetsAction(
   filters: MarketFilters,
@@ -18,7 +18,12 @@ export async function searchMarketAssetsAction(
   page: number,
   pageSize: number
 ): Promise<MarketSearchResult> {
-  return searchMarketAssets(filters, sort, page, pageSize)
+  // Resolved here (not passed by the client) so a "Favoritos"/"Alertas"/
+  // "Minha Carteira" quick filter can never be spoofed to see another
+  // profile's data — /mercado stays browsable anonymously either way,
+  // getOptionalProfile() just returns null and scope silently no-ops.
+  const profile = await getOptionalProfile()
+  return searchMarketAssets(filters, sort, page, pageSize, profile?.id ?? null)
 }
 
 export async function getAllSectorsAction(): Promise<string[]> {
