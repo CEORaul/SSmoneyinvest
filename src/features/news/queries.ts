@@ -37,6 +37,13 @@ const ARTICLE_INCLUDE = {
           priceSource: true,
           priceCents: true,
           priceChangePct: true,
+          sector: true,
+          // Real per-article fundamentals for buildNewsFacts below — the
+          // same Stock relation IndicatorGrid already reads, just narrowed
+          // to the handful of facts worth stating next to a news item.
+          stock: {
+            select: { priceToEarnings: true, roe: true, dividendYield: true, netMargin: true },
+          },
         },
       },
     },

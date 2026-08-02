@@ -3,6 +3,7 @@
 import { getLastDirectorySyncStatus } from "@/features/market-sync/sync-status"
 import { syncCompanyDetails } from "@/features/market-sync/sync-company-details"
 import { syncCompanyDirectory } from "@/features/market-sync/sync-company-directory"
+import { syncCompanyStatements } from "@/features/market-sync/sync-company-statements"
 import { requireUser } from "@/lib/auth/session"
 
 export interface SyncActionResult {
@@ -52,12 +53,27 @@ export async function runCompanyDirectorySyncAction(): Promise<SyncActionResult>
 }
 
 /// Manual trigger for the same job `/api/cron/company-details` runs — see
-/// runCompanyDirectorySyncAction() above. Only processes one batch (25
-/// companies, oldest-synced first) per call, same as the cron route.
+/// runCompanyDirectorySyncAction() above. Only processes one batch (500
+/// companies, oldest-synced first, ~1 BRAPI request per 20 via batching)
+/// per call, same as the cron route.
 export async function runCompanyDetailsSyncAction(): Promise<SyncActionResult> {
   await requireUser()
   try {
     const result = await syncCompanyDetails()
+    return { ok: true, processed: result.processed, failed: result.failed, errors: result.errors }
+  } catch (error) {
+    return toErrorResult(error)
+  }
+}
+
+/// Manual trigger for the same job `/api/cron/company-statements` runs —
+/// see runCompanyDirectorySyncAction() above. Only processes one batch
+/// (100 STOCK/BDR companies, oldest-statements-synced first) per call, same
+/// as the cron route.
+export async function runCompanyStatementsSyncAction(): Promise<SyncActionResult> {
+  await requireUser()
+  try {
+    const result = await syncCompanyStatements()
     return { ok: true, processed: result.processed, failed: result.failed, errors: result.errors }
   } catch (error) {
     return toErrorResult(error)

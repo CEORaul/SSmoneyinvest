@@ -18,14 +18,16 @@ function Row({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-/// Single most-recent-snapshot only — see ResultadosCard's comment; the
-/// same "no restated time series available" limitation applies here.
+/// Single most-recent-snapshot summary — see ResultadosCard's comment; the
+/// real restated time series lives in the Demonstrativos section instead.
 export function BalancoCard({ stock }: BalancoCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Balanço</CardTitle>
-        <p className="text-sm text-muted-foreground">Dados mais recentes disponíveis nesta fonte.</p>
+        <p className="text-sm text-muted-foreground">
+          Dados mais recentes disponíveis — veja a seção Demonstrativos para o histórico completo.
+        </p>
       </CardHeader>
       <CardContent>
         <Row label="Patrimônio Líquido" value={centsToCurrency(stock.equityCents)} />

@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { deleteAlertAction, pauseAlertAction, resumeAlertAction } from "@/features/alerts/actions"
 import type { PriceAlertRow } from "@/features/alerts/types"
@@ -112,7 +113,7 @@ export function AlertCard({ alert, onEdit, onChanged }: AlertCardProps) {
 
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Preço atual</span>
-        <span className="font-medium tabular-nums">{formatCurrencyCents(alert.currentPriceCents)}</span>
+        <LivePriceText id={alert.companyId} priceCents={alert.currentPriceCents} className="font-medium tabular-nums" />
       </div>
 
       <div className="flex items-center justify-between text-sm">

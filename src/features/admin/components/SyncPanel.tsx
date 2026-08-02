@@ -8,28 +8,36 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
   runCompanyDetailsSyncAction,
   runCompanyDirectorySyncAction,
+  runCompanyStatementsSyncAction,
   type SyncActionResult,
 } from "@/features/admin/actions"
 
-type JobKey = "directory" | "details"
+type JobKey = "directory" | "details" | "statements"
 
 const JOB_LABELS: Record<JobKey, string> = {
   directory: "Diretório de empresas (preços/listagem)",
   details: "Detalhes por lote (dividendos/histórico/fundamentos)",
+  statements: "Demonstrativos (Balanço/DRE/Fluxo de Caixa/DVA, splits)",
 }
 
-/// Both buttons call the exact same functions the (currently cron-less)
-/// /api/cron/companies and /api/cron/company-details routes call — see
-/// src/features/admin/actions.ts. No sync logic lives here or in the
-/// actions file itself, only the trigger + result display.
+const JOB_ACTIONS: Record<JobKey, () => Promise<SyncActionResult>> = {
+  directory: runCompanyDirectorySyncAction,
+  details: runCompanyDetailsSyncAction,
+  statements: runCompanyStatementsSyncAction,
+}
+
+/// All three buttons call the exact same functions the (currently cron-
+/// less) /api/cron/companies, /api/cron/company-details and
+/// /api/cron/company-statements routes call — see src/features/admin/
+/// actions.ts. No sync logic lives here or in the actions file itself,
+/// only the trigger + result display.
 export function SyncPanel() {
   const [running, setRunning] = useState<JobKey | null>(null)
   const [results, setResults] = useState<Partial<Record<JobKey, SyncActionResult>>>({})
 
   async function runJob(job: JobKey) {
     setRunning(job)
-    const action = job === "directory" ? runCompanyDirectorySyncAction : runCompanyDetailsSyncAction
-    const result = await action()
+    const result = await JOB_ACTIONS[job]()
     setRunning(null)
     setResults((current) => ({ ...current, [job]: result }))
 
@@ -85,7 +93,26 @@ export function SyncPanel() {
         </CardContent>
       </Card>
 
-      {(["directory", "details"] as const).map((job) => {
+      <Card>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium">Sincronizar demonstrativos</p>
+            <p className="text-sm text-muted-foreground">
+              {JOB_LABELS.statements} — o mesmo job de /api/cron/company-statements.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => runJob("statements")}
+            loading={running === "statements"}
+            disabled={running !== null}
+          >
+            Sincronizar demonstrativos
+          </Button>
+        </CardContent>
+      </Card>
+
+      {(["directory", "details", "statements"] as const).map((job) => {
         const result = results[job]
         if (!result) return null
         return (

@@ -757,7 +757,10 @@ function buildComparisonFactsBlock(companies: CompanyDetailDTO[]): string {
   return blocks.join("\n\n")
 }
 
-function buildKnownFactsList(dto: CompanyDetailDTO): string[] {
+/// Exported for finia/context.ts's "Empresa em foco" block — the exact same
+/// non-null-gated fact list this file already uses for indicator questions
+/// and the comparator, reused rather than reimplemented a third time.
+export function buildKnownFactsList(dto: CompanyDetailDTO): string[] {
   const facts: string[] = []
   if (dto.sector) facts.push(`Setor: ${translateSector(dto.sector)}`)
   if (dto.segment) facts.push(`Segmento: ${dto.segment}`)

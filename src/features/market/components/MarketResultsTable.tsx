@@ -11,13 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
+import { LiveChangeTag } from "@/components/shared/live-market/LiveChangeTag"
+import { LiveMarketCapText } from "@/components/shared/live-market/LiveMarketCapText"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
+import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { QuickActionsMenu } from "@/features/market/components/QuickActionsMenu"
 import type { MarketAssetRow } from "@/features/market/discovery-types"
-import { formatCompactNumber, formatCurrencyCents, formatCurrencyCentsCompact, formatPercent } from "@/utils/format"
+import { formatPercent } from "@/utils/format"
 
 interface MarketResultsTableProps {
   rows: MarketAssetRow[]
@@ -68,9 +71,11 @@ export function MarketResultsTable({ rows }: MarketResultsTableProps) {
               <TableCell>
                 <Badge variant="outline">{getAssetCategoryMeta(asset.assetClass).label}</Badge>
               </TableCell>
-              <TableCell className="text-right tabular-nums">{formatCurrencyCents(asset.priceCents)}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                <LivePriceText id={asset.id} priceCents={asset.priceCents} />
+              </TableCell>
               <TableCell className="text-right">
-                <PriceChangeTag changePct={asset.priceChangePct} />
+                <LiveChangeTag id={asset.id} priceCents={asset.priceCents} priceChangePct={asset.priceChangePct} />
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {asset.dividendYieldPct != null && asset.dividendYieldPct > 0
@@ -83,13 +88,13 @@ export function MarketResultsTable({ rows }: MarketResultsTableProps) {
                 {asset.roe != null ? formatPercent(asset.roe) : "—"}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {asset.marketCapCents != null ? formatCurrencyCentsCompact(asset.marketCapCents) : "—"}
+                <LiveMarketCapText id={asset.id} priceCents={asset.priceCents} marketCapCents={asset.marketCapCents} fallback="—" />
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
                 {asset.sector ? translateSector(asset.sector) : "—"}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {asset.volume != null ? formatCompactNumber(asset.volume) : "—"}
+                <LiveVolumeText id={asset.id} priceCents={asset.priceCents} volume={asset.volume} fallback="—" />
               </TableCell>
               <TableCell>
                 <QuickActionsMenu asset={asset} />

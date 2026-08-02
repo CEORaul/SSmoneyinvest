@@ -3,6 +3,9 @@ import { Flame, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { LiveChangeTag } from "@/components/shared/live-market/LiveChangeTag"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
+import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { getPopularCompanies, getTopGainers, getTopLosers } from "@/features/market/queries"
@@ -17,6 +20,10 @@ interface MoverColumn {
 }
 
 function MoverRow({ company }: { company: CompanyListItem }) {
+  const liveInput = company.id
+    ? { id: company.id, priceCents: company.priceCents, priceChangePct: company.changePct, volume: company.volume }
+    : null
+
   return (
     <Link
       href={`/empresa/${company.ticker}`}
@@ -27,14 +34,26 @@ function MoverRow({ company }: { company: CompanyListItem }) {
         <p className="truncate text-sm font-semibold">{company.ticker}</p>
         <p className="truncate text-xs text-muted-foreground">{company.name}</p>
       </div>
-      <div className="flex flex-col items-end gap-0.5">
-        <span className="text-sm font-medium tabular-nums">{formatCurrencyCents(company.priceCents)}</span>
-        <PriceChangeTag changePct={company.changePct} />
-      </div>
-      {company.volume != null && (
-        <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-          {formatCompactNumber(company.volume)}
-        </span>
+      {liveInput ? (
+        <>
+          <div className="flex flex-col items-end gap-0.5">
+            <LivePriceText {...liveInput} className="text-sm font-medium tabular-nums" />
+            <LiveChangeTag {...liveInput} />
+          </div>
+          <LiveVolumeText {...liveInput} className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground" />
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-sm font-medium tabular-nums">{formatCurrencyCents(company.priceCents)}</span>
+            <PriceChangeTag changePct={company.changePct} />
+          </div>
+          {company.volume != null && (
+            <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+              {formatCompactNumber(company.volume)}
+            </span>
+          )}
+        </>
       )}
     </Link>
   )

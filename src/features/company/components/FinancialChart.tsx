@@ -48,6 +48,12 @@ interface FinancialChartProps {
   /// mode passes a different formatter per view mode (e.g. percent for
   /// Rentabilidade %).
   valueFormatter?: (value: number) => string
+  /// Hides the 1D/5D/.../MAX period tabs (and the 1D intraday note) — set by
+  /// callers whose series aren't a price-history range at all (e.g.
+  /// HistoricoSection's multi-year statement metrics), where those controls
+  /// wouldn't mean anything. Defaults to true (existing comparison-mode
+  /// callers are unaffected).
+  showPeriodTabs?: boolean
 }
 
 const PERIODS: { value: ChartPeriod; label: string }[] = [
@@ -183,6 +189,7 @@ export function FinancialChart({
   onPeriodChange,
   isLoading: controlledLoading,
   valueFormatter,
+  showPeriodTabs = true,
 }: FinancialChartProps) {
   const isComparisonMode = series != null
 
@@ -245,17 +252,19 @@ export function FinancialChart({
 
   return (
     <div className="space-y-3">
-      <Tabs value={period} onValueChange={(value) => handlePeriodChange(value as ChartPeriod)}>
-        <TabsList>
-          {PERIODS.map((p) => (
-            <TabsTrigger key={p.value} value={p.value}>
-              {p.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {showPeriodTabs && (
+        <Tabs value={period} onValueChange={(value) => handlePeriodChange(value as ChartPeriod)}>
+          <TabsList>
+            {PERIODS.map((p) => (
+              <TabsTrigger key={p.value} value={p.value}>
+                {p.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
-      {period === "1D" && (
+      {showPeriodTabs && period === "1D" && (
         <p className="text-xs text-muted-foreground">
           Dados diários — mostrando o fechamento de hoje comparado ao fechamento anterior
           (sem cotação intradiária nesta fonte).

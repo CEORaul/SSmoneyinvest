@@ -1,14 +1,17 @@
 import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { AutoRefreshIndicator } from "@/components/shared/live-market/AutoRefreshIndicator"
+import { LiveChangeTag } from "@/components/shared/live-market/LiveChangeTag"
+import { LiveMarketCapText } from "@/components/shared/live-market/LiveMarketCapText"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
-import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
 import { AiIndicatorPopover } from "@/features/company/components/AiIndicatorPopover"
 import { formatIndicatorValue, type IndicatorDefinition } from "@/features/company/indicators"
 import type { CompanyDetailDTO } from "@/features/company/queries"
 import { computeRowHighlights, getComparisonIndicatorRows } from "@/features/comparator/table-highlights"
 import { cn } from "@/lib/utils"
-import { formatCurrencyCents, formatCurrencyCentsCompact } from "@/utils/format"
+import { formatCurrencyCentsCompact } from "@/utils/format"
 
 interface ComparisonTableProps {
   companies: CompanyDetailDTO[]
@@ -98,13 +101,14 @@ function IndicatorRow({ indicator, companies }: { indicator: IndicatorDefinition
 export function ComparisonTable({ companies, colors }: ComparisonTableProps) {
   const rows = getComparisonIndicatorRows(companies)
 
-  const priceValues = companies.map((c) => c.priceCents)
   const marketCapValues = companies.map((c) => (c.marketCapCents != null ? Number(c.marketCapCents) : null))
   const marketCapHighlights = computeRowHighlights(marketCapValues, "neutral")
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full border-collapse text-sm">
+    <div className="space-y-2">
+      <AutoRefreshIndicator />
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full border-collapse text-sm">
         <thead className="sticky top-0 z-20 bg-card">
           <tr className="border-b border-border">
             <th scope="col" className="sticky left-0 z-30 bg-card px-3 py-3 text-left font-medium whitespace-nowrap">
@@ -135,7 +139,7 @@ export function ComparisonTable({ companies, colors }: ComparisonTableProps) {
             <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">—</td>
             {companies.map((company) => (
               <td key={company.id} className="px-3 py-2.5 text-center font-semibold tabular-nums">
-                {formatCurrencyCents(company.priceCents)}
+                <LivePriceText id={company.id} priceCents={company.priceCents} />
               </td>
             ))}
           </tr>
@@ -144,9 +148,14 @@ export function ComparisonTable({ companies, colors }: ComparisonTableProps) {
               Variação
             </th>
             <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">—</td>
-            {companies.map((company, index) => (
+            {companies.map((company) => (
               <td key={company.id} className="px-3 py-2.5 text-center">
-                <PriceChangeTag changePct={priceValues[index] != null ? company.priceChangePct : 0} className="justify-center" />
+                <LiveChangeTag
+                  id={company.id}
+                  priceCents={company.priceCents}
+                  priceChangePct={company.priceChangePct}
+                  className="justify-center"
+                />
               </td>
             ))}
           </tr>
@@ -159,7 +168,12 @@ export function ComparisonTable({ companies, colors }: ComparisonTableProps) {
             </td>
             {companies.map((company) => (
               <td key={company.id} className="px-3 py-2.5 text-center font-semibold tabular-nums">
-                {company.marketCapCents != null ? formatCurrencyCentsCompact(company.marketCapCents) : "—"}
+                <LiveMarketCapText
+                  id={company.id}
+                  priceCents={company.priceCents}
+                  marketCapCents={company.marketCapCents}
+                  fallback="—"
+                />
               </td>
             ))}
           </tr>
@@ -168,7 +182,8 @@ export function ComparisonTable({ companies, colors }: ComparisonTableProps) {
             <IndicatorRow key={indicator.key} indicator={indicator} companies={companies} />
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   )
 }

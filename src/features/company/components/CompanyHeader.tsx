@@ -1,14 +1,17 @@
 import { ArrowRightLeft } from "lucide-react"
 import Link from "next/link"
 
-import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
+import { AutoRefreshIndicator } from "@/components/shared/live-market/AutoRefreshIndicator"
+import { LiveChangeTag } from "@/components/shared/live-market/LiveChangeTag"
+import { LiveMarketCapText } from "@/components/shared/live-market/LiveMarketCapText"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
+import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import type { TradeCompany } from "@/features/portfolio/components/TradeDialog"
 import type { CompanyDetailDTO } from "@/features/company/queries"
 import { CompanyHeaderActions } from "@/features/company/components/CompanyHeaderActions"
 import { translateSector } from "@/features/company/sector-labels"
-import { formatCompactNumber, formatCurrencyCents, formatCurrencyCentsCompact } from "@/utils/format"
 
 interface CompanyHeaderProps {
   dto: CompanyDetailDTO
@@ -19,6 +22,7 @@ interface CompanyHeaderProps {
 
 export function CompanyHeader({ dto, tradeCompany, initialFavorited, isAuthenticated }: CompanyHeaderProps) {
   const category = getAssetCategoryMeta(dto.assetClass)
+  const liveInput = { id: dto.id, priceCents: dto.priceCents, priceChangePct: dto.priceChangePct, volume: dto.volume, marketCapCents: dto.marketCapCents }
 
   return (
     <div className="flex flex-col gap-4">
@@ -42,25 +46,15 @@ export function CompanyHeader({ dto, tradeCompany, initialFavorited, isAuthentic
         </div>
 
         <div className="flex flex-col items-start gap-1 sm:items-end">
-          <span className="text-3xl font-semibold tabular-nums">
-            {formatCurrencyCents(dto.priceCents)}
-          </span>
-          <PriceChangeTag changePct={dto.priceChangePct} />
+          <LivePriceText {...liveInput} className="text-3xl font-semibold tabular-nums" />
+          <LiveChangeTag {...liveInput} />
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-6 text-sm">
-        {dto.volume != null && (
-          <span className="text-muted-foreground">
-            Volume <span className="font-medium text-foreground">{formatCompactNumber(dto.volume)}</span>
-          </span>
-        )}
-        {dto.marketCapCents != null && (
-          <span className="text-muted-foreground">
-            Market Cap{" "}
-            <span className="font-medium text-foreground">{formatCurrencyCentsCompact(dto.marketCapCents)}</span>
-          </span>
-        )}
+        <LiveVolumeText {...liveInput} label="Volume" className="text-muted-foreground" />
+        <LiveMarketCapText {...liveInput} label="Market Cap" className="text-muted-foreground" />
+        <AutoRefreshIndicator />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

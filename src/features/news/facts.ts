@@ -2,7 +2,7 @@ import "server-only"
 
 import type { NewsTopic } from "@/generated/prisma/client"
 import { NEWS_TOPIC_LABELS } from "@/features/news/types"
-import { formatDate } from "@/utils/format"
+import { formatDate, formatPercent } from "@/utils/format"
 
 /// Structural, not derived from getArticleById's return type — every AI
 /// feature that builds facts (Resumir/Sentimento/Explicação para
@@ -17,7 +17,24 @@ export interface NewsFactsArticle {
   sourceName: string
   publishedAt: Date
   topics: NewsTopic[]
-  companyLinks: { company: { ticker: string; name: string } }[]
+  companyLinks: {
+    company: {
+      ticker: string
+      name: string
+      sector: string | null
+      stock: {
+        priceToEarnings: unknown
+        roe: unknown
+        dividendYield: unknown
+        netMargin: unknown
+      } | null
+    }
+  }[]
+}
+
+function formatMaybeDecimal(value: unknown): number | null {
+  if (value == null) return null
+  return typeof value === "number" ? value : Number(value)
 }
 
 /// Builds the fact list every article-level AI feature (Resumir/Sentimento/
@@ -36,7 +53,30 @@ export function buildNewsFacts(article: NewsFactsArticle): string[] | null {
   if (article.topics.length > 0) facts.push(`Categorias: ${article.topics.map((t) => NEWS_TOPIC_LABELS[t]).join(", ")}`)
   if (article.companyLinks.length > 0) {
     facts.push(`Ativos relacionados: ${article.companyLinks.map((link) => `${link.company.ticker} (${link.company.name})`).join(", ")}`)
+    for (const link of article.companyLinks) {
+      const fundamentalsLine = buildCompanyFundamentalsLine(link.company)
+      if (fundamentalsLine) facts.push(fundamentalsLine)
+    }
   }
 
   return facts.length <= 3 && !article.description && !article.content ? null : facts
+}
+
+/// One line per linked company, only the fields that actually exist for it
+/// — never a fabricated ratio. Lets Resumir/Sentimento/Explicação ground a
+/// claim like "a empresa negocia a um P/L elevado" in a real number instead
+/// of the article text alone.
+function buildCompanyFundamentalsLine(company: NewsFactsArticle["companyLinks"][number]["company"]): string | null {
+  const parts: string[] = []
+  if (company.sector) parts.push(`setor ${company.sector}`)
+  const pl = formatMaybeDecimal(company.stock?.priceToEarnings)
+  if (pl != null) parts.push(`P/L ${pl.toFixed(2).replace(".", ",")}`)
+  const roe = formatMaybeDecimal(company.stock?.roe)
+  if (roe != null) parts.push(`ROE ${formatPercent(roe)}`)
+  const dividendYield = formatMaybeDecimal(company.stock?.dividendYield)
+  if (dividendYield != null) parts.push(`Dividend Yield ${formatPercent(dividendYield)}`)
+  const netMargin = formatMaybeDecimal(company.stock?.netMargin)
+  if (netMargin != null) parts.push(`Margem Líquida ${formatPercent(netMargin)}`)
+
+  return parts.length > 0 ? `Fundamentos de ${company.ticker}: ${parts.join(", ")}` : null
 }

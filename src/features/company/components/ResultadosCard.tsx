@@ -18,22 +18,24 @@ function Row({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-/// Single most-recent-snapshot only — BRAPI doesn't expose a restated
-/// quarterly/annual time series at any confirmed plan tier, so a
-/// trimestre/ano toggle here would have nothing real behind it. This is a
-/// deliberate scope reduction from a literal quarterly/annual view,
-/// documented in the etapa's final report.
+/// Single most-recent-snapshot summary — the real restated quarterly/
+/// annual time series (10+ years, via BRAPI Pro's statement-history
+/// modules) lives in the Demonstrativos section further down the page,
+/// which this card links to rather than duplicating.
 export function ResultadosCard({ stock }: ResultadosCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Resultados</CardTitle>
-        <p className="text-sm text-muted-foreground">Dados mais recentes disponíveis nesta fonte.</p>
+        <p className="text-sm text-muted-foreground">
+          Dados mais recentes disponíveis — veja a seção Demonstrativos para o histórico completo.
+        </p>
       </CardHeader>
       <CardContent>
         <Row label="Receita" value={centsToCurrency(stock.revenueCents)} />
         <Row label="Lucro" value={centsToCurrency(stock.netIncomeCents)} />
         <Row label="EBITDA" value={centsToCurrency(stock.ebitdaCents)} />
+        <Row label="Fluxo de Caixa Livre" value={centsToCurrency(stock.freeCashFlowCents)} />
         <Row label="Margem Bruta" value={stock.grossMargin != null ? `${stock.grossMargin.toFixed(2)}%` : null} />
         <Row label="Margem EBITDA" value={stock.ebitdaMargin != null ? `${stock.ebitdaMargin.toFixed(2)}%` : null} />
         <Row label="Margem Líquida" value={stock.netMargin != null ? `${stock.netMargin.toFixed(2)}%` : null} />

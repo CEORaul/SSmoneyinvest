@@ -33,9 +33,20 @@ type Capability = keyof ProviderCapabilities
 /// sync jobs — gets multi-provider failover for free, with zero changes.
 export class ProviderManager implements MarketDataProvider {
   readonly name = "provider-manager"
-  readonly capabilities: ProviderCapabilities = { directory: true, details: true }
 
   constructor(private readonly registrations: ProviderRegistration[]) {}
+
+  /// A getter (not a field) so it always reflects `this.registrations` —
+  /// batch/statements are true only if at least one registered provider
+  /// actually supports them (today: BRAPI does, Yahoo doesn't for either).
+  get capabilities(): ProviderCapabilities {
+    return {
+      directory: true,
+      details: true,
+      batch: this.registrations.some((r) => r.provider.capabilities.batch),
+      statements: this.registrations.some((r) => r.provider.capabilities.statements),
+    }
+  }
 
   async listCompanyDirectory(): Promise<CompanyDirectoryEntry[]> {
     return this.executeWithFailover("directory", (provider) =>
@@ -49,6 +60,33 @@ export class ProviderManager implements MarketDataProvider {
   ): Promise<CompanyDetails | null> {
     return this.executeWithFailover("details", (provider) =>
       provider.getCompanyDetails(ticker, range)
+    )
+  }
+
+  /// Tries the top batch-capable candidate, fails over to the next on
+  /// error — per-ticker "this symbol was silently dropped from the batch"
+  /// recovery is MarketDataService's job (refreshCompanyDetailsBatch), not
+  /// duplicated here; this method only handles "the whole request failed."
+  async getCompanyDetailsBatch(
+    tickers: string[],
+    range: PriceRange
+  ): Promise<Map<string, CompanyDetails>> {
+    return this.executeWithFailover("batch", (provider) =>
+      // Safe: executeWithFailover only selects providers whose
+      // capabilities.batch is true, and this method exists on every such
+      // provider by construction (see ProviderCapabilities' own doc).
+      provider.getCompanyDetailsBatch!(tickers, range)
+    )
+  }
+
+  /// Same shape as getCompanyDetailsBatch, routed by the `statements`
+  /// capability instead.
+  async getCompanyStatementsBatch(
+    tickers: string[],
+    range: PriceRange
+  ): Promise<Map<string, CompanyDetails>> {
+    return this.executeWithFailover("statements", (provider) =>
+      provider.getCompanyStatementsBatch!(tickers, range)
     )
   }
 

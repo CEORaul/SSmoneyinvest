@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Suspense } from "react"
 
 import { Button } from "@/components/ui/button"
+import { AutoRefreshIndicator } from "@/components/shared/live-market/AutoRefreshIndicator"
 import { AddInvestmentButton } from "@/features/portfolio/components/AddInvestmentButton"
 import { AllocationCharts } from "@/features/portfolio/components/AllocationCharts"
 import { InsightsSection } from "@/features/portfolio/components/InsightsSection"
@@ -49,8 +50,9 @@ export default async function CarteiraPage() {
             <p className="text-muted-foreground">
               Acompanhe suas posições, compras, vendas e proventos.
             </p>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-col gap-1">
               <PriceSyncStatus lastSyncedAt={lastSyncedAt} />
+              <AutoRefreshIndicator />
             </div>
           </div>
           <AddInvestmentButton />

@@ -2,9 +2,10 @@ import Link from "next/link"
 import { Building2 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
+import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { getFiiHighlights } from "@/features/market/dashboard-queries"
-import { formatCompactNumber, formatCurrencyCents } from "@/utils/format"
 
 /// Mercado 2.0's "FIIs em Destaque" — Dividend Yield/Preço/P-VP/Liquidez per
 /// the spec's own field list, sourced from the same searchMarketAssets the
@@ -41,7 +42,7 @@ export async function MarketFiiHighlights() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Preço</p>
-                <p className="text-sm font-medium tabular-nums">{formatCurrencyCents(fii.priceCents)}</p>
+                <LivePriceText id={fii.id} priceCents={fii.priceCents} className="text-sm font-medium tabular-nums" />
               </div>
               <div className="hidden text-right sm:block">
                 <p className="text-xs text-muted-foreground">P/VP</p>
@@ -51,9 +52,13 @@ export async function MarketFiiHighlights() {
               </div>
               <div className="hidden text-right md:block">
                 <p className="text-xs text-muted-foreground">Liquidez</p>
-                <p className="text-sm font-medium tabular-nums">
-                  {fii.volume != null ? formatCompactNumber(fii.volume) : "—"}
-                </p>
+                <LiveVolumeText
+                  id={fii.id}
+                  priceCents={fii.priceCents}
+                  volume={fii.volume}
+                  className="text-sm font-medium tabular-nums"
+                  fallback={<p className="text-sm font-medium tabular-nums">—</p>}
+                />
               </div>
             </Link>
           ))

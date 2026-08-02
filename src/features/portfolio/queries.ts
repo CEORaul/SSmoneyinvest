@@ -1,7 +1,7 @@
 import "server-only"
 
 import type { AssetClass, PriceSource } from "@/generated/prisma/client"
-import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
+import { computeYieldOnCost, getTrailingDividendPerShareMap } from "@/features/market/dividend-yield"
 import { ASSET_CATEGORIES, getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { computePositionMetrics } from "@/features/portfolio/position-metrics"
 import { prisma } from "@/lib/prisma"
@@ -24,6 +24,10 @@ export interface PortfolioPositionRow {
   profitCents: number
   profitPct: number
   dividendYieldPct: number
+  /// Trailing-12-month dividends-per-share ÷ average purchase price (not
+  /// current price) — how much of what was actually paid comes back as
+  /// dividends each year.
+  yieldOnCostPct: number
   dividendsReceivedCents: number
   allocationPct: number
   lastUpdatedAt: Date
@@ -48,6 +52,8 @@ export interface PortfolioCategoryGroup {
     /// would let one tiny position's yield distort the category figure as
     /// much as the position actually driving most of its value.
     avgDividendYieldPct: number
+    /// Same value-weighting, for Yield on Cost.
+    avgYieldOnCostPct: number
     /// Value-weighted average of each position's own averagePriceCents —
     /// "preço médio geral" in the category summary, not a per-ticker figure
     /// (those already exist per-row).
@@ -106,6 +112,11 @@ function groupPositionsByCategory(
         ? rows.reduce((sum, row) => sum + row.dividendYieldPct * row.currentValueCents, 0) /
           currentValueCents
         : 0
+    const avgYieldOnCostPct =
+      currentValueCents > 0
+        ? rows.reduce((sum, row) => sum + row.yieldOnCostPct * row.currentValueCents, 0) /
+          currentValueCents
+        : 0
     const avgPurchasePriceCents =
       currentValueCents > 0
         ? rows.reduce((sum, row) => sum + row.averagePriceCents * row.currentValueCents, 0) /
@@ -124,6 +135,7 @@ function groupPositionsByCategory(
         assetCount: rows.length,
         dailyChangePct,
         avgDividendYieldPct,
+        avgYieldOnCostPct,
         avgPurchasePriceCents,
         allocationPct:
           portfolioCurrentValueCents > 0
@@ -150,12 +162,10 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
     return { positions: [], totals: EMPTY_TOTALS, byCategory: [] }
   }
 
-  const dividendYields = await getTrailingDividendYieldMap(
-    positions.map((position) => ({
-      id: position.companyId,
-      priceCents: position.company.priceCents,
-    }))
-  )
+  // Fetched once and reused for both the regular yield (÷ current price) and
+  // Yield on Cost (÷ average purchase price) below — avoids running the same
+  // groupBy twice for the same batch of companies.
+  const trailingPerShare = await getTrailingDividendPerShareMap(positions.map((p) => p.companyId))
 
   const computed = positions.map((position) => ({
     position,
@@ -169,29 +179,34 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
   const totalCurrentValueCents = computed.reduce((sum, row) => sum + row.currentValueCents, 0)
 
   const positionRows: PortfolioPositionRow[] = computed.map(
-    ({ position, currentValueCents, investedCents, profitCents, profitPct }) => ({
-      id: position.id,
-      companyId: position.companyId,
-      ticker: position.company.ticker,
-      name: position.company.name,
-      logoUrl: position.company.logoUrl,
-      sector: position.company.sector,
-      assetClass: position.company.assetClass,
-      priceSource: position.company.priceSource,
-      quantity: position.quantity.toString(),
-      averagePriceCents: position.averagePriceCents,
-      currentPriceCents: position.company.priceCents,
-      priceChangePct: Number(position.company.priceChangePct),
-      investedCents,
-      currentValueCents,
-      profitCents,
-      profitPct,
-      dividendYieldPct: dividendYields.get(position.companyId) ?? 0,
-      dividendsReceivedCents: Number(position.totalDividendsCents),
-      allocationPct:
-        totalCurrentValueCents > 0 ? (currentValueCents / totalCurrentValueCents) * 100 : 0,
-      lastUpdatedAt: position.company.updatedAt,
-    })
+    ({ position, currentValueCents, investedCents, profitCents, profitPct }) => {
+      const perShare = trailingPerShare.get(position.companyId) ?? 0
+      const priceCents = position.company.priceCents
+      return {
+        id: position.id,
+        companyId: position.companyId,
+        ticker: position.company.ticker,
+        name: position.company.name,
+        logoUrl: position.company.logoUrl,
+        sector: position.company.sector,
+        assetClass: position.company.assetClass,
+        priceSource: position.company.priceSource,
+        quantity: position.quantity.toString(),
+        averagePriceCents: position.averagePriceCents,
+        currentPriceCents: priceCents,
+        priceChangePct: Number(position.company.priceChangePct),
+        investedCents,
+        currentValueCents,
+        profitCents,
+        profitPct,
+        dividendYieldPct: priceCents > 0 ? (perShare / (priceCents / 100)) * 100 : 0,
+        yieldOnCostPct: computeYieldOnCost(perShare, position.averagePriceCents),
+        dividendsReceivedCents: Number(position.totalDividendsCents),
+        allocationPct:
+          totalCurrentValueCents > 0 ? (currentValueCents / totalCurrentValueCents) * 100 : 0,
+        lastUpdatedAt: position.company.updatedAt,
+      }
+    }
   )
 
   const totalInvestedCents = positionRows.reduce((sum, row) => sum + row.investedCents, 0)

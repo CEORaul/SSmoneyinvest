@@ -11,6 +11,16 @@ import type {
 export interface ProviderCapabilities {
   readonly directory: boolean
   readonly details: boolean
+  /// Whether `getCompanyDetailsBatch` is implemented and safe to call —
+  /// distinct from `details` since a provider can support one ticker at a
+  /// time without supporting a real multi-ticker request (Yahoo's chart
+  /// endpoint, for instance, has no batch shape at all).
+  readonly batch: boolean
+  /// Whether `getCompanyStatementsBatch` (financial-statement history —
+  /// Balanço/DRE/Fluxo de Caixa/DVA, annual + quarterly) is implemented.
+  /// A distinct flag from `batch` since a provider can support ordinary
+  /// batched quotes without exposing statement history at all (Yahoo).
+  readonly statements: boolean
 }
 
 /// Everything that talks to an external market-data API implements this —
@@ -27,4 +37,24 @@ export interface MarketDataProvider {
     ticker: string,
     range: PriceRange
   ): Promise<CompanyDetails | null>
+
+  /// Same data as `getCompanyDetails`, for many tickers in one request —
+  /// OPTIONAL so every existing/future provider that doesn't support real
+  /// batching (Yahoo today) keeps compiling untouched; this is a strict
+  /// extension of the interface, never a breaking change. Callers must
+  /// check `capabilities.batch` before calling this. Missing/invalid
+  /// tickers are simply absent from the returned map, never thrown for.
+  getCompanyDetailsBatch?(
+    tickers: string[],
+    range: PriceRange
+  ): Promise<Map<string, CompanyDetails>>
+
+  /// Same shape as `getCompanyDetailsBatch`, but the returned `CompanyDetails.
+  /// statements` field is populated (see CompanyStatementsInput) — a
+  /// separate, heavier request most providers never need to make on every
+  /// sync tick. OPTIONAL for the same reason `getCompanyDetailsBatch` is.
+  getCompanyStatementsBatch?(
+    tickers: string[],
+    range: PriceRange
+  ): Promise<Map<string, CompanyDetails>>
 }

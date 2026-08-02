@@ -1,8 +1,10 @@
 import "server-only"
 
 import { getAlertsForProfile } from "@/features/alerts/queries"
+import { getCompanyByTicker } from "@/features/company/queries"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { computePortfolioScore } from "@/features/portfolio/score/compute-score"
+import { buildKnownFactsList } from "@/services/ai-content-service"
 import { formatCurrencyCents } from "@/utils/format"
 
 export interface PlatformContext {
@@ -82,6 +84,22 @@ export async function buildPlatformContext(profileId: string, currentPath?: stri
 
   if (currentPath) {
     blocks.push(`### Página atual\nO usuário está navegando em: ${currentPath}`)
+
+    // Real BRAPI-sourced fundamentals for whatever company the user is
+    // currently looking at — reuses the exact fact-gating ai-content-service
+    // already applies to indicator questions and the comparator, so this
+    // never duplicates or drifts from those numbers.
+    const empresaMatch = currentPath.match(/^\/empresa\/([^/?]+)/)
+    if (empresaMatch) {
+      const company = await getCompanyByTicker(decodeURIComponent(empresaMatch[1]))
+      if (company) {
+        const facts = buildKnownFactsList(company)
+        if (facts.length > 0) {
+          blocks.push(`### Empresa em foco\n${company.ticker} (${company.name})\n${facts.join("\n")}`)
+          sourceLabels.push("Empresa em foco")
+        }
+      }
+    }
   }
 
   return { blocks, sourceLabels }

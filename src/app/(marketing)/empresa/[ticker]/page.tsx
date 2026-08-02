@@ -23,8 +23,10 @@ import { CompanyHeader } from "@/features/company/components/CompanyHeader"
 import { CompanySummaryCard } from "@/features/company/components/CompanySummaryCard"
 import { CotacaoStatsCard } from "@/features/company/components/CotacaoStatsCard"
 import { CoverageBanner } from "@/features/company/components/CoverageBanner"
+import { DemonstrativosSection } from "@/features/company/components/DemonstrativosSection"
 import { DividendHistory } from "@/features/company/components/DividendHistory"
 import { FinancialChart } from "@/features/company/components/FinancialChart"
+import { HistoricoSection } from "@/features/company/components/HistoricoSection"
 import { IndicatorGrid } from "@/features/company/components/IndicatorGrid"
 import { MyPositionCard } from "@/features/company/components/MyPositionCard"
 import { ResultadosCard } from "@/features/company/components/ResultadosCard"
@@ -159,6 +161,10 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
           <BalancoCard stock={dto.stock} />
         </div>
       )}
+
+      {category.hasFundamentals && dto.stock && <DemonstrativosSection companyId={dto.id} />}
+
+      {category.hasFundamentals && dto.stock && <HistoricoSection companyId={dto.id} />}
 
       <SimilarCompaniesSection companies={similarCompanies} />
     </div>

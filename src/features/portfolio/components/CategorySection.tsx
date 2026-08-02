@@ -41,6 +41,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { useLiveMarketPrice } from "@/hooks/use-live-market-price"
 import { toggleFavoriteAction } from "@/features/company/actions"
 import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
@@ -52,6 +53,34 @@ import { cn } from "@/lib/utils"
 import { formatCurrencyCents, formatPercent, formatRelativeTime } from "@/utils/format"
 
 export type PositionActionType = "buy" | "sell" | "income" | "adjustment" | "history"
+
+/// Owns the "Preço atual"/"Variação diária" cells for one row — a real
+/// component (not an inline render inside .map()) because it calls
+/// useLiveMarketPrice itself, and hooks can only be called from a
+/// component's own body, never from a plain callback passed to .map().
+/// Kept in this file (already "use client") rather than a shared leaf
+/// component since its styling (icon+color on the cell itself) is specific
+/// to this table.
+function PositionPriceCells({ position }: { position: PortfolioPositionRow }) {
+  const live = useLiveMarketPrice({
+    id: position.companyId,
+    priceCents: position.currentPriceCents,
+    priceChangePct: position.priceChangePct,
+  })
+  const isGain = live.priceChangePct >= 0
+
+  return (
+    <>
+      <TableCell className="text-right tabular-nums">{formatCurrencyCents(live.priceCents)}</TableCell>
+      <TableCell className={cn("text-right tabular-nums", isGain ? "text-gain" : "text-loss")}>
+        <span className="inline-flex items-center justify-end gap-1">
+          {isGain ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+          {formatPercent(live.priceChangePct)}
+        </span>
+      </TableCell>
+    </>
+  )
+}
 
 interface CategorySectionProps {
   group: PortfolioCategoryGroup
@@ -166,6 +195,10 @@ export function CategorySection({
             <span className="font-semibold tabular-nums">{formatPercent(group.totals.avgDividendYieldPct)}</span>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground">YoC médio</p>
+            <span className="font-semibold tabular-nums">{formatPercent(group.totals.avgYieldOnCostPct)}</span>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground">% carteira</p>
             <span className="font-semibold tabular-nums">
               {formatPercent(group.totals.allocationPct)}
@@ -213,6 +246,10 @@ export function CategorySection({
               <p className="font-medium tabular-nums">{formatPercent(group.totals.avgDividendYieldPct)}</p>
             </div>
             <div>
+              <p className="text-xs text-muted-foreground">YoC médio</p>
+              <p className="font-medium tabular-nums">{formatPercent(group.totals.avgYieldOnCostPct)}</p>
+            </div>
+            <div>
               <p className="text-xs text-muted-foreground">Preço médio geral</p>
               <p className="font-medium tabular-nums">{formatCurrencyCents(group.totals.avgPurchasePriceCents)}</p>
             </div>
@@ -256,6 +293,7 @@ export function CategorySection({
                   <TableHead className="text-right">Lucro</TableHead>
                   <TableHead className="text-right">Rentabilidade</TableHead>
                   <TableHead className="text-right">Dividend Yield</TableHead>
+                  <TableHead className="text-right">Yield on Cost</TableHead>
                   <TableHead className="text-right">Participação</TableHead>
                   <TableHead className="text-right">Atualizado</TableHead>
                   <TableHead className="w-10" />
@@ -314,24 +352,7 @@ export function CategorySection({
                         <TableCell className="text-right tabular-nums">
                           {formatCurrencyCents(position.averagePriceCents)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCurrencyCents(position.currentPriceCents)}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right tabular-nums",
-                            isDailyGain ? "text-gain" : "text-loss"
-                          )}
-                        >
-                          <span className="inline-flex items-center justify-end gap-1">
-                            {isDailyGain ? (
-                              <TrendingUp className="size-3.5" />
-                            ) : (
-                              <TrendingDown className="size-3.5" />
-                            )}
-                            {formatPercent(position.priceChangePct)}
-                          </span>
-                        </TableCell>
+                        <PositionPriceCells position={position} />
                         <TableCell
                           className={cn(
                             "text-right tabular-nums",
@@ -368,6 +389,9 @@ export function CategorySection({
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatPercent(position.dividendYieldPct)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(position.yieldOnCostPct)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatPercent(position.allocationPct)}
@@ -450,7 +474,7 @@ export function CategorySection({
                       </TableRow>
                       {isRowExpanded && (
                         <TableRow key={`${position.id}-detail`}>
-                          <TableCell colSpan={16} className="bg-muted/20 p-0">
+                          <TableCell colSpan={17} className="bg-muted/20 p-0">
                             <ExpandedPositionDetail
                               companyId={position.companyId}
                               ticker={position.ticker}

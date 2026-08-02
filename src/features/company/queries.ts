@@ -36,6 +36,8 @@ export interface CompanyStockFundamentals {
   grossDebtCents: bigint | null
   bookValuePerShareCents: number | null
   sharesOutstanding: bigint | null
+  freeCashFlowCents: bigint | null
+  operatingCashFlowCents: bigint | null
 }
 
 export interface CompanyFiiFundamentals {
@@ -146,6 +148,8 @@ export function toDetailDTO(
           grossDebtCents: company.stock.grossDebtCents,
           bookValuePerShareCents: company.stock.bookValuePerShareCents,
           sharesOutstanding: company.stock.sharesOutstanding,
+          freeCashFlowCents: company.stock.freeCashFlowCents,
+          operatingCashFlowCents: company.stock.operatingCashFlowCents,
         }
       : null,
     fii: company.fii

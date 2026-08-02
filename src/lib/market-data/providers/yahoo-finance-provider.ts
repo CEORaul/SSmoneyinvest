@@ -82,6 +82,10 @@ function mapDividends(result: YahooChartResult): DividendEvent[] {
     amountPerShare: event.amount,
     exDate: new Date(event.date * 1000),
     paymentDate: null,
+    relatedTo: null,
+    isinCode: null,
+    remarks: null,
+    approvedOn: null,
   }))
 }
 
@@ -92,7 +96,7 @@ function mapDividends(result: YahooChartResult): DividendEvent[] {
 /// when brapi can't serve a ticker (most commonly: no BRAPI_API_TOKEN).
 export class YahooFinanceProvider implements MarketDataProvider {
   readonly name = "yahoo-finance"
-  readonly capabilities = { directory: false, details: true }
+  readonly capabilities = { directory: false, details: true, batch: false, statements: false }
 
   async listCompanyDirectory() {
     return []
@@ -143,9 +147,14 @@ export class YahooFinanceProvider implements MarketDataProvider {
       volume: result.meta.regularMarketVolume != null ? BigInt(Math.round(result.meta.regularMarketVolume)) : null,
       priceHistory: mapPriceHistory(result),
       dividends: mapDividends(result),
-      // Yahoo's unofficial chart endpoint has no fundamentals/statistics
-      // modules at all — always null here, never guessed.
+      // Yahoo's unofficial chart endpoint has no fundamentals/statistics,
+      // corporate-actions, or FII/ETF modules at all — always empty/null
+      // here, never guessed.
+      splits: [],
       stock: null,
+      fii: null,
+      etf: null,
+      statements: null,
       source: this.name,
     }
   }

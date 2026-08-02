@@ -2,10 +2,11 @@ import Link from "next/link"
 import { LineChart } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PriceChangeTag } from "@/components/shared/PriceChangeTag"
+import { LiveChangeTag } from "@/components/shared/live-market/LiveChangeTag"
+import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
+import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { getEtfHighlights } from "@/features/market/dashboard-queries"
-import { formatCompactNumber, formatCurrencyCents } from "@/utils/format"
 
 /// Mercado 2.0's "ETFs" — Preço/Variação/Volume per the spec's own field
 /// list, sourced from the same searchMarketAssets the filter board runs
@@ -35,14 +36,15 @@ export async function MarketEtfHighlights() {
                 <p className="truncate text-xs text-muted-foreground">{etf.name}</p>
               </div>
               <div className="flex flex-col items-end gap-0.5">
-                <span className="text-sm font-medium tabular-nums">{formatCurrencyCents(etf.priceCents)}</span>
-                <PriceChangeTag changePct={etf.priceChangePct} />
+                <LivePriceText id={etf.id} priceCents={etf.priceCents} className="text-sm font-medium tabular-nums" />
+                <LiveChangeTag id={etf.id} priceCents={etf.priceCents} priceChangePct={etf.priceChangePct} />
               </div>
-              {etf.volume != null && (
-                <span className="hidden w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block">
-                  {formatCompactNumber(etf.volume)}
-                </span>
-              )}
+              <LiveVolumeText
+                id={etf.id}
+                priceCents={etf.priceCents}
+                volume={etf.volume}
+                className="hidden w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:block"
+              />
             </Link>
           ))
         ) : (

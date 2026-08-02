@@ -3,6 +3,7 @@ import dynamic from "next/dynamic"
 import { Suspense } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { AutoRefreshIndicator } from "@/components/shared/live-market/AutoRefreshIndicator"
 import { GlobalSearch } from "@/features/search/components/GlobalSearch"
 import { getSearchDropdownDefaultsAction } from "@/features/search/actions"
 import { getAllSectors, searchMarketAssets } from "@/features/market/discovery-queries"
@@ -91,6 +92,7 @@ export default async function MercadoPage() {
               <p className="text-muted-foreground">
                 Cotações, mapas de calor, movimentos e notícias — tudo em um só lugar.
               </p>
+              <AutoRefreshIndicator className="mt-1" />
             </div>
           </div>
           <GlobalSearch

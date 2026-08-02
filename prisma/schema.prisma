@@ -28,20 +28,20 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  favorites          Favorite[]
-  portfolioEntries   PortfolioPosition[]
-  transactions       Transaction[]
-  preferences        UserPreferences?
-  searchLogs         SearchLog[]
-  targetAllocations  TargetAllocation[]
-  aiContents         AiContent[]
-  radarNotifications RadarNotification[]
-  savedMarketFilters SavedMarketFilter[]
-  priceAlerts        PriceAlert[]
-  alertNotifications AlertNotification[]
+  favorites               Favorite[]
+  portfolioEntries        PortfolioPosition[]
+  transactions            Transaction[]
+  preferences             UserPreferences?
+  searchLogs              SearchLog[]
+  targetAllocations       TargetAllocation[]
+  aiContents              AiContent[]
+  radarNotifications      RadarNotification[]
+  savedMarketFilters      SavedMarketFilter[]
+  priceAlerts             PriceAlert[]
+  alertNotifications      AlertNotification[]
   portfolioScoreSnapshots PortfolioScoreSnapshot[]
-  conversations      Conversation[]
-  savedNewsArticles  SavedNewsArticle[]
+  conversations           Conversation[]
+  savedNewsArticles       SavedNewsArticle[]
 
   @@map("profiles")
 }
@@ -137,18 +137,18 @@ enum PriceSource {
 /// fields shared across all three classes; class-specific fundamentals live
 /// in the 1:1 Stock/Fii/Etf extension tied to `assetClass`.
 model Company {
-  id                String     @id @default(uuid())
-  ticker            String     @unique
-  name              String
-  logoUrl           String?
-  description       String?
-  sector            String?
-  segment           String?
-  assetClass        AssetClass
-  currency          String     @default("BRL")
-  priceCents        Int        @default(0)
-  priceChangePct    Decimal    @default(0) @db.Decimal(8, 4)
-  marketCapCents    BigInt?
+  id                    String      @id @default(uuid())
+  ticker                String      @unique
+  name                  String
+  logoUrl               String?
+  description           String?
+  sector                String?
+  segment               String?
+  assetClass            AssetClass
+  currency              String      @default("BRL")
+  priceCents            Int         @default(0)
+  priceChangePct        Decimal     @default(0) @db.Decimal(8, 4)
+  marketCapCents        BigInt?
   /// Day/52-week range and volume — available for every ticker via BRAPI's
   /// basic quote payload (no premium modules needed), just not mapped yet.
   dayHighCents          Int?
@@ -156,29 +156,39 @@ model Company {
   fiftyTwoWeekHighCents Int?
   fiftyTwoWeekLowCents  Int?
   volume                BigInt?
-  listedAt          DateTime?
+  /// Funcionários / Site — from BRAPI's `summaryProfile` module, same
+  /// gating as description/sector above (both land inside the details
+  /// sync's premium-modules response, not the cheap directory listing).
+  employees             Int?
+  website               String?
+  listedAt              DateTime?
   /// Last time dividends/history/fundamentals were pulled from the provider
   /// (the token-gated "detail" call) — distinct from `updatedAt`, which also
   /// changes on every cheap directory-sync price refresh. Null = never synced.
-  detailsSyncedAt   DateTime?
+  detailsSyncedAt       DateTime?
+  /// Last time the heavier financial-statement modules (Balanço/DRE/Fluxo
+  /// de Caixa/DVA, dividends, splits) were pulled — a separate, deliberately
+  /// less-frequent cadence than detailsSyncedAt since statements only
+  /// change quarterly (see refreshCompanyStatements). Null = never synced.
+  statementsSyncedAt    DateTime?
   /// Origin tracking for whatever is currently in priceCents/priceChangePct/
   /// marketCapCents — which provider supplied it, when, how long the call
   /// took, how many providers had to be tried before one produced a value
   /// that passed validation, and the outcome. Written by MarketDataService
   /// on every successful (or rejected-but-handled) quote update.
-  lastQuoteProvider   String?
-  lastQuoteAt         DateTime?
-  lastQuoteLatencyMs  Int?
+  lastQuoteProvider     String?
+  lastQuoteAt           DateTime?
+  lastQuoteLatencyMs    Int?
   /// Number of different providers attempted to land this value — 1 when
   /// BRAPI answered validly on the first try, 2+ when a fallback/re-check
   /// was needed. Not HTTP retry count (that's internal to fetchWithRetry).
-  lastQuoteAttempts   Int?
+  lastQuoteAttempts     Int?
   /// "OK" | "REJECTED_KEPT_LAST_VALID" — see QuoteValidationAlert for why,
   /// when the latter.
-  lastQuoteStatus     String?
+  lastQuoteStatus       String?
   /// See the PriceSource enum doc comments. Drives whether trades against
   /// this company require a manual price at entry time (only MANUAL does).
-  priceSource       PriceSource @default(AUTO)
+  priceSource           PriceSource @default(AUTO)
   /// True when this instrument trades on a public exchange (B3, a crypto
   /// exchange, ...) at all — independent of priceSource/whether *we* sync
   /// it. E.g. Bitcoin is exchange-traded (true) even when added manually
@@ -186,9 +196,9 @@ model Company {
   /// never exchange-traded (false) regardless of how its price is sourced.
   /// Not surfaced in any UI yet — purely architectural prep for filtering/
   /// grouping once more categories (Renda Fixa sub-types, Outros) exist.
-  listedOnExchange  Boolean    @default(true)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  listedOnExchange      Boolean     @default(true)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   stock                  Stock?
   fii                    Fii?
@@ -206,6 +216,11 @@ model Company {
   priceAlerts            PriceAlert[]
   alertNotifications     AlertNotification[]
   newsArticleLinks       NewsArticleCompany[]
+  balanceSheetStatements BalanceSheetStatement[]
+  incomeStatements       IncomeStatement[]
+  cashFlowStatements     CashFlowStatement[]
+  valueAddedStatements   ValueAddedStatement[]
+  stockSplitEvents       StockSplitEvent[]
 
   @@index([assetClass])
   @@index([sector])
@@ -232,65 +247,72 @@ model QuoteValidationAlert {
   @@map("quote_validation_alerts")
 }
 
-/// Stock-specific fundamentals (indicadores fundamentalistas). The block
-/// added below (psr..sharesOutstanding) is only ever populated by BRAPI's
-/// premium `defaultKeyStatistics`/`financialData` modules — on the current
-/// plan tier that's just the 4 sandbox tickers (PETR4/VALE3/ITUB4/MGLU3),
-/// so these stay null for the rest of the universe until a plan upgrade.
-/// Deliberately NOT modeled here: Tag Along, Fluxo de Caixa — no real data
-/// source exists for either at any BRAPI/Yahoo plan tier; see
-/// src/features/company/indicators.ts's "never-available" entries instead
-/// of adding a column that could only ever be guessed at.
+/// Stock-specific fundamentals (indicadores fundamentalistas), populated by
+/// BRAPI's premium `defaultKeyStatistics`/`financialData`/`summaryProfile`
+/// modules (a Pro-tier token gets full coverage for any ticker, not just
+/// BRAPI's 4 free sandbox symbols — confirmed live). `evToEbit`, `roic`,
+/// `payout`, `revenueCagr3y`, `netIncomeCagr3y` need statement/dividend
+/// history beyond a single quote response and are written by
+/// MarketDataService.refreshCompanyStatements instead of the per-ticker
+/// details sync. Deliberately NOT modeled here: Tag Along — no real data
+/// source exists for it at any BRAPI/Yahoo plan tier; see
+/// src/features/company/indicators.ts's "never-available" entry instead of
+/// adding a column that could only ever be guessed at.
 model Stock {
-  id                String   @id @default(uuid())
-  companyId         String   @unique
-  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  priceToEarnings   Decimal? @db.Decimal(10, 2)
-  priceToBook       Decimal? @db.Decimal(10, 2)
-  roe               Decimal? @db.Decimal(8, 4)
-  roic              Decimal? @db.Decimal(8, 4)
-  dividendYield     Decimal? @db.Decimal(8, 4)
-  netMargin         Decimal? @db.Decimal(8, 4)
-  netDebtCents      BigInt?
-  equityCents       BigInt?
-  psr                Decimal? @db.Decimal(8, 4)
-  evToEbit           Decimal? @db.Decimal(8, 4)
-  evToEbitda         Decimal? @db.Decimal(8, 4)
-  roa                Decimal? @db.Decimal(8, 4)
-  grossMargin        Decimal? @db.Decimal(8, 4)
-  ebitdaMargin       Decimal? @db.Decimal(8, 4)
-  payout             Decimal? @db.Decimal(8, 4)
-  currentLiquidity   Decimal? @db.Decimal(8, 4)
-  revenueCents       BigInt?
-  netIncomeCents     BigInt?
-  ebitdaCents        BigInt?
-  grossDebtCents     BigInt?
-  netDebtToEbitda    Decimal? @db.Decimal(8, 4)
-  revenueCagr3y      Decimal? @db.Decimal(8, 4)
-  netIncomeCagr3y    Decimal? @db.Decimal(8, 4)
-  freeFloatPct       Decimal? @db.Decimal(8, 4)
-  beta               Decimal? @db.Decimal(8, 4)
+  id                     String   @id @default(uuid())
+  companyId              String   @unique
+  company                Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priceToEarnings        Decimal? @db.Decimal(10, 2)
+  priceToBook            Decimal? @db.Decimal(10, 2)
+  roe                    Decimal? @db.Decimal(8, 4)
+  roic                   Decimal? @db.Decimal(8, 4)
+  dividendYield          Decimal? @db.Decimal(8, 4)
+  netMargin              Decimal? @db.Decimal(8, 4)
+  netDebtCents           BigInt?
+  equityCents            BigInt?
+  psr                    Decimal? @db.Decimal(8, 4)
+  evToEbit               Decimal? @db.Decimal(8, 4)
+  evToEbitda             Decimal? @db.Decimal(8, 4)
+  roa                    Decimal? @db.Decimal(8, 4)
+  grossMargin            Decimal? @db.Decimal(8, 4)
+  ebitdaMargin           Decimal? @db.Decimal(8, 4)
+  payout                 Decimal? @db.Decimal(8, 4)
+  currentLiquidity       Decimal? @db.Decimal(8, 4)
+  revenueCents           BigInt?
+  netIncomeCents         BigInt?
+  ebitdaCents            BigInt?
+  grossDebtCents         BigInt?
+  netDebtToEbitda        Decimal? @db.Decimal(8, 4)
+  revenueCagr3y          Decimal? @db.Decimal(8, 4)
+  netIncomeCagr3y        Decimal? @db.Decimal(8, 4)
+  freeFloatPct           Decimal? @db.Decimal(8, 4)
+  beta                   Decimal? @db.Decimal(8, 4)
   bookValuePerShareCents Int?
-  sharesOutstanding  BigInt?
-  updatedAt         DateTime @updatedAt
+  sharesOutstanding      BigInt?
+  /// Confirmed real fields on BRAPI's daily `financialData` module
+  /// (`freeCashflow`/`operatingCashflow`) — no need to wait for the
+  /// weekly statement sync for either.
+  freeCashFlowCents      BigInt?
+  operatingCashFlowCents BigInt?
+  updatedAt              DateTime @updatedAt
 
   @@map("stocks")
 }
 
 /// FII-specific fundamentals.
 model Fii {
-  id             String   @id @default(uuid())
-  companyId      String   @unique
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  priceToBook    Decimal? @db.Decimal(10, 2)
-  dividendYield  Decimal? @db.Decimal(8, 4)
-  netWorthCents  BigInt?
-  managementFee  Decimal? @db.Decimal(8, 4)
-  vacancyRate    Decimal? @db.Decimal(8, 4)
-  propertyCount  Int?
-  quotaCount     BigInt?
-  administrator  String?
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(uuid())
+  companyId     String   @unique
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priceToBook   Decimal? @db.Decimal(10, 2)
+  dividendYield Decimal? @db.Decimal(8, 4)
+  netWorthCents BigInt?
+  managementFee Decimal? @db.Decimal(8, 4)
+  vacancyRate   Decimal? @db.Decimal(8, 4)
+  propertyCount Int?
+  quotaCount    BigInt?
+  administrator String?
+  updatedAt     DateTime @updatedAt
 
   @@map("fiis")
 }
@@ -339,11 +361,153 @@ model DividendPayment {
   amountPerShare Decimal      @db.Decimal(12, 6)
   exDate         DateTime
   paymentDate    DateTime?
+  /// Only ever populated from BRAPI's `dividendsData.cashDividends` shape
+  /// (confirmed live) — null for events sourced from Yahoo's fallback,
+  /// which carries none of this.
+  relatedTo      String?
+  isinCode       String?
+  remarks        String?
+  approvedOn     DateTime?
   createdAt      DateTime     @default(now())
 
   @@unique([companyId, exDate, type])
   @@index([companyId, exDate])
   @@map("dividend_payments")
+}
+
+enum StatementPeriod {
+  ANNUAL
+  QUARTERLY
+}
+
+/// One reporting period of Balanço Patrimonial — from BRAPI's
+/// `balanceSheetHistory`/`balanceSheetHistoryQuarterly` modules (Pro-tier
+/// only, confirmed live: 10+ years annual, 60+ quarters). `raw` keeps the
+/// full BRAPI period object (90+ fields) verbatim so nothing is lost even
+/// for fields this app doesn't curate onto their own column today.
+model BalanceSheetStatement {
+  id                           String          @id @default(uuid())
+  companyId                    String
+  company                      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period                       StatementPeriod
+  endDate                      DateTime
+  totalAssetsCents             BigInt?
+  totalLiabilitiesCents        BigInt?
+  totalEquityCents             BigInt?
+  totalCurrentAssetsCents      BigInt?
+  totalCurrentLiabilitiesCents BigInt?
+  cashCents                    BigInt?
+  longTermDebtCents            BigInt?
+  goodWillCents                BigInt?
+  intangibleAssetsCents        BigInt?
+  retainedEarningsCents        BigInt?
+  raw                          Json
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+
+  @@unique([companyId, endDate, period])
+  @@index([companyId, period, endDate])
+  @@map("balance_sheet_statements")
+}
+
+/// One reporting period of DRE — from BRAPI's `incomeStatementHistory`/
+/// `incomeStatementHistoryQuarterly` modules.
+model IncomeStatement {
+  id                    String          @id @default(uuid())
+  companyId             String
+  company               Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period                StatementPeriod
+  endDate               DateTime
+  totalRevenueCents     BigInt?
+  costOfRevenueCents    BigInt?
+  grossProfitCents      BigInt?
+  operatingIncomeCents  BigInt?
+  ebitCents             BigInt?
+  incomeBeforeTaxCents  BigInt?
+  incomeTaxExpenseCents BigInt?
+  netIncomeCents        BigInt?
+  basicEps              Decimal?        @db.Decimal(12, 6)
+  dilutedEps            Decimal?        @db.Decimal(12, 6)
+  raw                   Json
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@unique([companyId, endDate, period])
+  @@index([companyId, period, endDate])
+  @@map("income_statements")
+}
+
+/// One reporting period of Fluxo de Caixa — from BRAPI's `cashflowHistory`/
+/// `cashflowHistoryQuarterly` modules.
+model CashFlowStatement {
+  id                      String          @id @default(uuid())
+  companyId               String
+  company                 Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period                  StatementPeriod
+  endDate                 DateTime
+  operatingCashFlowCents  BigInt?
+  investmentCashFlowCents BigInt?
+  financingCashFlowCents  BigInt?
+  freeCashFlowCents       BigInt?
+  initialCashBalanceCents BigInt?
+  finalCashBalanceCents   BigInt?
+  raw                     Json
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@unique([companyId, endDate, period])
+  @@index([companyId, period, endDate])
+  @@map("cash_flow_statements")
+}
+
+/// One reporting period of DVA (Demonstração do Valor Adicionado) — from
+/// BRAPI's `valueAddedHistory`/`valueAddedHistoryQuarterly` modules.
+model ValueAddedStatement {
+  id                          String          @id @default(uuid())
+  companyId                   String
+  company                     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period                      StatementPeriod
+  endDate                     DateTime
+  revenueCents                BigInt?
+  grossAddedValueCents        BigInt?
+  netAddedValueCents          BigInt?
+  addedValueToDistributeCents BigInt?
+  teamRemunerationCents       BigInt?
+  taxesCents                  BigInt?
+  equityRemunerationCents     BigInt?
+  dividendsCents              BigInt?
+  retainedEarningsOrLossCents BigInt?
+  raw                         Json
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+
+  @@unique([companyId, endDate, period])
+  @@index([companyId, period, endDate])
+  @@map("value_added_statements")
+}
+
+enum StockSplitType {
+  SPLIT // BRAPI label "DESDOBRAMENTO"
+  BONUS // BRAPI label "BONIFICACAO"
+}
+
+/// Real corporate-action history (Grupamentos/Desdobramentos/Bonificações)
+/// — from BRAPI's `dividendsData.stockDividends` shape, confirmed live.
+model StockSplitEvent {
+  id             String         @id @default(uuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type           StockSplitType
+  factor         Decimal        @db.Decimal(12, 4)
+  completeFactor String?
+  isinCode       String?
+  approvedOn     DateTime
+  lastDatePrior  DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@unique([companyId, approvedOn, type])
+  @@index([companyId, approvedOn])
+  @@map("stock_split_events")
 }
 
 // ─────────────────────────────────────────────────────────
@@ -353,6 +517,10 @@ model DividendPayment {
 enum SyncJobType {
   COMPANY_DIRECTORY
   COMPANY_DETAILS
+  /// Weekly financial-statement + splits + richer-dividends sync (see
+  /// MarketDataService.refreshCompanyStatements) — a separate, deliberately
+  /// less-frequent job type from COMPANY_DETAILS.
+  COMPANY_STATEMENTS
 }
 
 enum SyncStatus {
@@ -392,18 +560,18 @@ enum ProviderStatus {
 /// call-by-call log (that's ProviderLog, a later phase) — just "how is this
 /// provider doing right now."
 model ProviderHealth {
-  id                 String         @id @default(uuid())
-  providerName       String         @unique
-  status             ProviderStatus @default(ONLINE)
-  consecutiveFailures Int           @default(0)
-  totalRequests      Int            @default(0)
-  totalFailures      Int            @default(0)
-  lastLatencyMs      Int?
-  avgLatencyMs       Int?
-  lastError          String?
-  lastSuccessAt      DateTime?
-  lastCheckedAt      DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id                  String         @id @default(uuid())
+  providerName        String         @unique
+  status              ProviderStatus @default(ONLINE)
+  consecutiveFailures Int            @default(0)
+  totalRequests       Int            @default(0)
+  totalFailures       Int            @default(0)
+  lastLatencyMs       Int?
+  avgLatencyMs        Int?
+  lastError           String?
+  lastSuccessAt       DateTime?
+  lastCheckedAt       DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   @@map("provider_health")
 }
@@ -480,24 +648,24 @@ enum AiQuestionType {
 /// rather than upsert-by-key for exactly this reason. A rare duplicate is a
 /// harmless idle cache row, not a correctness issue.
 model AiContent {
-  id           String          @id @default(uuid())
-  companyId    String?
-  company      Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  kind         AiContentKind
+  id            String          @id @default(uuid())
+  companyId     String?
+  company       Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kind          AiContentKind
   /// Only set on the generic (companyId: null) rows — scopes them to a
   /// category so a FII's "o que é P/VP" answer never leaks into a stock's.
-  assetClass   AssetClass?
-  indicatorKey String?
-  questionType AiQuestionType?
-  content      String          @db.Text
+  assetClass    AssetClass?
+  indicatorKey  String?
+  questionType  AiQuestionType?
+  content       String          @db.Text
   /// Model id that produced this text — provenance, not a behavior switch.
-  model        String
-  sourceHash   String
-  generatedAt  DateTime        @default(now())
+  model         String
+  sourceHash    String
+  generatedAt   DateTime        @default(now())
   /// TTL fallback (30 days) for content whose sourceHash never changes —
   /// sourceHash mismatch is the primary invalidation path, this just caps
   /// how stale a genuinely-unchanged answer is allowed to get.
-  expiresAt    DateTime?
+  expiresAt     DateTime?
   /// Identifies a /comparar multi-company comparison (sorted, comma-joined
   /// ticker list, e.g. "BBAS3,PETR4") for COMPARISON_SUMMARY/
   /// COMPARISON_ANALYSIS rows — null for every single-company row.
@@ -507,8 +675,8 @@ model AiContent {
   /// Set only for RADAR_SUMMARY rows — a portfolio-level AI summary has no
   /// company/comparison to key off, just the profile it was generated for.
   /// Null for every pre-existing row (company/comparison-scoped content).
-  profileId String?
-  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId     String?
+  profile       Profile?        @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, kind, assetClass, indicatorKey, questionType, comparisonKey, profileId], map: "ai_content_unique_key")
   @@index([companyId, kind])
@@ -539,17 +707,17 @@ model Favorite {
 /// Kept in sync transactionally whenever a Transaction is created/edited/
 /// deleted, mirroring the write-time-aggregate pattern (not derived on read).
 model PortfolioPosition {
-  id                   String   @id @default(uuid())
-  profileId            String
-  profile              Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  companyId            String
-  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  quantity             Decimal  @default(0) @db.Decimal(18, 8)
-  averagePriceCents    Int      @default(0)
-  totalInvestedCents   BigInt   @default(0)
-  totalDividendsCents  BigInt   @default(0)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  profileId           String
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quantity            Decimal  @default(0) @db.Decimal(18, 8)
+  averagePriceCents   Int      @default(0)
+  totalInvestedCents  BigInt   @default(0)
+  totalDividendsCents BigInt   @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@unique([profileId, companyId])
   @@map("portfolio_positions")
@@ -577,34 +745,34 @@ enum TransactionType {
 /// recomputes the whole position by replaying every transaction in
 /// chronological order (see recomputePosition()).
 model Transaction {
-  id          String          @id @default(uuid())
-  profileId   String
-  profile     Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  companyId   String
-  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  type        TransactionType
-  quantity    Decimal         @db.Decimal(18, 8)
-  priceCents  Int
-  totalCents  BigInt
-  feesCents   Int             @default(0)
+  id                  String          @id @default(uuid())
+  profileId           String
+  profile             Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type                TransactionType
+  quantity            Decimal         @db.Decimal(18, 8)
+  priceCents          Int
+  totalCents          BigInt
+  feesCents           Int             @default(0)
   /// Provider name that supplied the historical price ("brapi.dev",
   /// "yahoo-finance"), "cache" if it was already stored, or "manual" for
   /// an operator-entered override. Plain string, not an enum — a new
   /// provider shouldn't need a migration to be recorded here.
-  priceSource String?
+  priceSource         String?
   /// True when the price came from the "Editar preço da operação" override
   /// rather than the automatic historical lookup.
-  isManualPrice      Boolean  @default(false)
+  isManualPrice       Boolean         @default(false)
   /// Only set on SELL rows — realized gain/loss for this specific sale,
   /// computed against the running average price at the moment it occurred.
   /// Recomputed (not just set once) whenever an earlier transaction for
   /// the same position is edited or deleted, since that can change the
   /// average price this sale was measured against.
   realizedProfitCents BigInt?
-  date        DateTime
-  note        String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  date                DateTime
+  note                String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@index([profileId, date])
   @@index([profileId, companyId])
@@ -659,12 +827,12 @@ model SearchLog {
 /// lives in src/features/portfolio/rebalancing.ts; this table never
 /// affects PortfolioPosition/Transaction or portfolio-service.ts at all.
 model TargetAllocation {
-  id         String   @id @default(uuid())
+  id         String     @id @default(uuid())
   profileId  String
-  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile    Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
   assetClass AssetClass
-  targetPct  Decimal  @db.Decimal(5, 2)
-  updatedAt  DateTime @updatedAt
+  targetPct  Decimal    @db.Decimal(5, 2)
+  updatedAt  DateTime   @updatedAt
 
   @@unique([profileId, assetClass])
   @@map("target_allocations")
@@ -893,20 +1061,20 @@ enum AlertStatus {
 /// repetidamente" requirement without needing separate crossing-history
 /// bookkeeping.
 model PriceAlert {
-  id                   String          @id @default(uuid())
-  profileId            String
-  profile              Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  companyId            String
-  company              Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  type                 AlertType       @default(PRICE)
-  direction            AlertDirection
-  targetPriceCents     Int
-  status               AlertStatus     @default(ACTIVE)
-  triggeredAt          DateTime?
-  triggeredPriceCents  Int?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  notifications        AlertNotification[]
+  id                  String              @id @default(uuid())
+  profileId           String
+  profile             Profile             @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type                AlertType           @default(PRICE)
+  direction           AlertDirection
+  targetPriceCents    Int
+  status              AlertStatus         @default(ACTIVE)
+  triggeredAt         DateTime?
+  triggeredPriceCents Int?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  notifications       AlertNotification[]
 
   @@index([profileId, status, createdAt])
   @@index([companyId, status, direction])
@@ -926,18 +1094,18 @@ enum AlertNotificationStatus {
 /// target/triggered price pair the bell UI needs to render without a join
 /// back to PriceAlert (which may have since been edited or deleted).
 model AlertNotification {
-  id                  String                   @id @default(uuid())
+  id                  String                  @id @default(uuid())
   profileId           String
-  profile             Profile                  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile             Profile                 @relation(fields: [profileId], references: [id], onDelete: Cascade)
   alertId             String
-  alert               PriceAlert               @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  alert               PriceAlert              @relation(fields: [alertId], references: [id], onDelete: Cascade)
   companyId           String
-  company             Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  direction            AlertDirection
-  targetPriceCents     Int
-  triggeredPriceCents  Int
-  status              AlertNotificationStatus  @default(UNREAD)
-  createdAt           DateTime                 @default(now())
+  company             Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  direction           AlertDirection
+  targetPriceCents    Int
+  triggeredPriceCents Int
+  status              AlertNotificationStatus @default(UNREAD)
+  createdAt           DateTime                @default(now())
 
   @@index([profileId, status, createdAt])
   @@map("alert_notifications")
@@ -959,12 +1127,12 @@ model AlertNotification {
 /// so a future "why did my score change" view can diff two snapshots
 /// without recomputing anything.
 model PortfolioScoreSnapshot {
-  id         String   @id @default(uuid())
-  profileId  String
-  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  score      Int
-  breakdown  Json
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  score     Int
+  breakdown Json
+  createdAt DateTime @default(now())
 
   @@index([profileId, createdAt])
   @@map("portfolio_score_snapshots")
@@ -978,12 +1146,12 @@ model PortfolioScoreSnapshot {
 /// first user message and can be renamed; deleting a Conversation cascades
 /// to its messages (no orphaned history).
 model Conversation {
-  id        String                 @id @default(uuid())
+  id        String                @id @default(uuid())
   profileId String
-  profile   Profile                @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile   Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
   title     String
-  createdAt DateTime               @default(now())
-  updatedAt DateTime               @updatedAt
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
   messages  ConversationMessage[]
 
   @@index([profileId, updatedAt])
@@ -1057,23 +1225,23 @@ enum NewsTopic {
 /// to the user without a real provider response backing it — a failed
 /// refresh just serves whatever's already cached (see NewsFetchLog).
 model NewsArticle {
-  id           String       @id @default(uuid())
-  provider     NewsProvider
-  externalId   String?
-  url          String       @unique
-  title        String
-  description  String?      @db.Text
-  content      String?      @db.Text
-  imageUrl     String?
-  author       String?
-  sourceName   String
-  sourceUrl    String?
-  language     String?
-  country      String?
-  publishedAt  DateTime
-  fetchedAt    DateTime     @default(now())
-  buckets      String[]
-  topics       NewsTopic[]
+  id          String       @id @default(uuid())
+  provider    NewsProvider
+  externalId  String?
+  url         String       @unique
+  title       String
+  description String?      @db.Text
+  content     String?      @db.Text
+  imageUrl    String?
+  author      String?
+  sourceName  String
+  sourceUrl   String?
+  language    String?
+  country     String?
+  publishedAt DateTime
+  fetchedAt   DateTime     @default(now())
+  buckets     String[]
+  topics      NewsTopic[]
 
   companyLinks NewsArticleCompany[]
   savedBy      SavedNewsArticle[]

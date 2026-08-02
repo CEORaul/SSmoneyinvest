@@ -73,6 +73,7 @@ export function applySimulatedChanges(summary: PortfolioSummary, changes: Simula
           profitCents: 0,
           profitPct: 0,
           dividendYieldPct: 0,
+          yieldOnCostPct: 0,
           dividendsReceivedCents: 0,
           allocationPct: 0, // recomputed in rebuildSummary below
           lastUpdatedAt: new Date(),
@@ -89,8 +90,8 @@ export function applySimulatedChanges(summary: PortfolioSummary, changes: Simula
 /// than imported) because that grouping helper isn't exported and this
 /// module must stay a pure function with zero Prisma access. Fields the
 /// score engine never reads (dailyChangePct, avgDividendYieldPct,
-/// avgPurchasePriceCents) are left at 0 — honest placeholders, not values
-/// any UI here displays.
+/// avgYieldOnCostPct, avgPurchasePriceCents) are left at 0 — honest
+/// placeholders, not values any UI here displays.
 function rebuildSummary(positions: PortfolioPositionRow[]): PortfolioSummary {
   const totalCurrentValueCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
   const totalInvestedCents = positions.reduce((sum, p) => sum + p.investedCents, 0)
@@ -132,6 +133,7 @@ function rebuildSummary(positions: PortfolioPositionRow[]): PortfolioSummary {
         dailyChangePct: 0,
         allocationPct: totalCurrentValueCents > 0 ? (catCurrentValueCents / totalCurrentValueCents) * 100 : 0,
         avgDividendYieldPct: 0,
+        avgYieldOnCostPct: 0,
         avgPurchasePriceCents: 0,
       },
     }

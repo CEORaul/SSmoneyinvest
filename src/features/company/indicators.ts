@@ -17,9 +17,9 @@ export interface IndicatorDefinition {
   assetClasses: AssetClass[]
   /// "sourced": a real provider could populate this (null today just means
   /// no sync has produced it yet — counts against data coverage). "never-
-  /// available": no data source exists for this at all, at any plan tier
-  /// (Tag Along, Fluxo de Caixa) — excluded from coverage entirely so it
-  /// never puts a permanent ceiling on the percentage.
+  /// available": no data source exists for this at all (Tag Along) —
+  /// excluded from coverage entirely so it never puts a permanent ceiling
+  /// on the percentage.
   availability: "sourced" | "never-available"
   direction: IndicatorDirection
   getValue(dto: CompanyDetailDTO): number | null
@@ -115,11 +115,21 @@ export const INDICATOR_DEFINITIONS: IndicatorDefinition[] = [
     direction: "lower-is-better",
     getValue: (d) => (d.stock?.netDebtCents != null ? Number(d.stock.netDebtCents) / 100 : null),
   },
-  // Deliberately NOT modeled as Prisma columns — no real source exists for
-  // either at any BRAPI/Yahoo plan tier. getValue always returns null; the
-  // card copy explains there is no data source, not that a sync is pending.
+  // Deliberately NOT modeled as a Prisma column — confirmed absent from
+  // every BRAPI module this app requests (defaultKeyStatistics,
+  // financialData, summaryProfile, and all 8 statement-history modules),
+  // not merely gated by plan tier. getValue always returns null; the card
+  // copy explains there is no data source, not that a sync is pending.
   { key: "tagAlong", label: "Tag Along", unit: "percent", assetClasses: STOCK_AND_BDR, availability: "never-available", direction: "neutral", getValue: () => null },
-  { key: "freeCashFlow", label: "Fluxo de Caixa Livre", unit: "currency", assetClasses: STOCK_AND_BDR, availability: "never-available", direction: "neutral", getValue: () => null },
+  {
+    key: "freeCashFlow",
+    label: "Fluxo de Caixa Livre",
+    unit: "currency",
+    assetClasses: STOCK_AND_BDR,
+    availability: "sourced",
+    direction: "higher-is-better",
+    getValue: (d) => (d.stock?.freeCashFlowCents != null ? Number(d.stock.freeCashFlowCents) / 100 : null),
+  },
 ]
 
 export function getIndicatorsForAssetClass(assetClass: AssetClass): IndicatorDefinition[] {

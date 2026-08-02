@@ -4,6 +4,7 @@ import { Bell, Plus } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { AutoRefreshIndicator } from "@/components/shared/live-market/AutoRefreshIndicator"
 import { AlertCard } from "@/features/alerts/components/AlertCard"
 import { CreateAlertDialog } from "@/features/alerts/components/CreateAlertDialog"
 import { getAlertsAction } from "@/features/alerts/actions"
@@ -40,6 +41,7 @@ export function AlertsList({ initialAlerts }: AlertsListProps) {
           <p className="text-muted-foreground">
             Nunca mais perca uma oportunidade. Seja avisado quando um ativo atingir o preço desejado.
           </p>
+          <AutoRefreshIndicator className="mt-1" />
         </div>
         <Button onClick={handleCreate}>
           <Plus className="size-4" />
