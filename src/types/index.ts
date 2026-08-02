@@ -18,4 +18,12 @@ export interface CompanyListItem {
   /// Same optional-producer reasoning as `id` — populated wherever the
   /// underlying Company row is already fetched in full.
   volume?: bigint | null
+  /// All optional, same reasoning — populated wherever the producing query
+  /// already selected the base Company scalars (sector/marketCapCents,
+  /// free) or included the `stock` relation (a one-line addition, still one
+  /// query). Lets CompanyCard show more than price/variação wherever the
+  /// data is already in hand, without forcing every producer to fetch it.
+  sector?: string | null
+  marketCapCents?: bigint | null
+  stock?: import("@/features/company/queries").CompanyStockFundamentals | null
 }

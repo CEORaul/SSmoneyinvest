@@ -77,6 +77,14 @@ export function applySimulatedChanges(summary: PortfolioSummary, changes: Simula
           dividendsReceivedCents: 0,
           allocationPct: 0, // recomputed in rebuildSummary below
           lastUpdatedAt: new Date(),
+          // The simulator has no Prisma access (pure client-side what-if
+          // engine) and SimulatedChange never carries fundamentals — a
+          // hypothetical "what if I added PETR4" position honestly has no
+          // P/L médio/ROE médio contribution here, same as it wouldn't
+          // change the real coverage % on the actual asset page either.
+          stock: null,
+          fii: null,
+          etf: null,
         },
       ]
     }
@@ -91,7 +99,10 @@ export function applySimulatedChanges(summary: PortfolioSummary, changes: Simula
 /// module must stay a pure function with zero Prisma access. Fields the
 /// score engine never reads (dailyChangePct, avgDividendYieldPct,
 /// avgYieldOnCostPct, avgPurchasePriceCents) are left at 0 — honest
-/// placeholders, not values any UI here displays.
+/// placeholders, not values any UI here displays. avgPLRatio/avgRoePct/
+/// avgBookValuePerShareCents are left null (not 0) since simulated
+/// positions never carry real fundamentals — same honesty rule as a real
+/// position with no data.
 function rebuildSummary(positions: PortfolioPositionRow[]): PortfolioSummary {
   const totalCurrentValueCents = positions.reduce((sum, p) => sum + p.currentValueCents, 0)
   const totalInvestedCents = positions.reduce((sum, p) => sum + p.investedCents, 0)
@@ -134,6 +145,9 @@ function rebuildSummary(positions: PortfolioPositionRow[]): PortfolioSummary {
         allocationPct: totalCurrentValueCents > 0 ? (catCurrentValueCents / totalCurrentValueCents) * 100 : 0,
         avgDividendYieldPct: 0,
         avgYieldOnCostPct: 0,
+        avgPLRatio: null,
+        avgRoePct: null,
+        avgBookValuePerShareCents: null,
         avgPurchasePriceCents: 0,
       },
     }

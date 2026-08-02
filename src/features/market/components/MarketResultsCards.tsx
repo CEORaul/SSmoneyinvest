@@ -8,10 +8,21 @@ import { LiveMarketCapText } from "@/components/shared/live-market/LiveMarketCap
 import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { translateSector } from "@/features/company/sector-labels"
+import { IndicatorBadge } from "@/features/company/components/metrics/IndicatorBadge"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { QuickActionsMenu } from "@/features/market/components/QuickActionsMenu"
 import type { MarketAssetRow } from "@/features/market/discovery-types"
 import { formatPercent } from "@/utils/format"
+
+/// P/L, P/VP, ROE, PSR, EV/EBITDA, Margem Líquida — every one that's
+/// meaningful for this asset's class self-prunes when unavailable (see
+/// IndicatorBadge), so a FII/ETF card naturally shows fewer chips than a
+/// STOCK card instead of a row of "—". Dividend Yield stays its own bespoke
+/// line above (asset.dividendYieldPct, the real trailing-12-month figure —
+/// Stock/Fii/Etf.dividendYield itself is never populated by any sync, so
+/// the shared "dividendYield" indicator would wrongly show "Indisponível"
+/// here even though this card already has the real number).
+const CARD_INDICATOR_KEYS = ["priceToEarnings", "priceToBook", "roe", "psr", "evToEbitda", "netMargin"]
 
 interface MarketResultsCardsProps {
   rows: MarketAssetRow[]
@@ -51,9 +62,14 @@ export function MarketResultsCards({ rows }: MarketResultsCardsProps) {
               {asset.dividendYieldPct != null && asset.dividendYieldPct > 0 && (
                 <p>DY {formatPercent(asset.dividendYieldPct)}</p>
               )}
-              {asset.priceToEarnings != null && <p>P/L {asset.priceToEarnings.toFixed(2).replace(".", ",")}</p>}
               <LiveMarketCapText id={asset.id} priceCents={asset.priceCents} marketCapCents={asset.marketCapCents} />
             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1 border-t border-border/60 pt-2">
+            {CARD_INDICATOR_KEYS.map((key) => (
+              <IndicatorBadge key={key} dto={asset} indicatorKey={key} />
+            ))}
           </div>
         </Link>
       ))}

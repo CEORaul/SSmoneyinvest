@@ -12,7 +12,7 @@ import { NewsRelevancePanel } from "@/features/news/components/NewsRelevancePane
 import { NewsSentimentBadge } from "@/features/news/components/NewsSentimentBadge"
 import { NEWS_TOPIC_LABELS, type NewsArticleRow } from "@/features/news/types"
 import { cn } from "@/lib/utils"
-import { formatAbsoluteTime, formatRelativeTime } from "@/utils/format"
+import { formatAbsoluteTime, formatCurrencyCents, formatPercent, formatRelativeTime } from "@/utils/format"
 
 interface NewsCardProps {
   article: NewsArticleRow
@@ -101,6 +101,26 @@ export function NewsCard({ article, onSummarize, onExplainBeginner }: NewsCardPr
           <div className="flex flex-wrap gap-1.5">
             {article.matchedCompanies.map((company) => (
               <NewsArticleQuickActions key={company.id} company={company} />
+            ))}
+          </div>
+        )}
+
+        {/* Real-time context per mentioned ativo — Preço/Variação always
+            available; P/L, DY, ROE only when the sync has real fundamentals
+            for that company (never a fabricated placeholder in their place). */}
+        {article.matchedCompanies.length > 0 && (
+          <div className="space-y-1">
+            {article.matchedCompanies.map((company) => (
+              <p key={company.id} className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{company.ticker}</span>{" "}
+                {formatCurrencyCents(company.priceCents)}{" "}
+                <span className={company.priceChangePct >= 0 ? "text-gain" : "text-loss"}>
+                  ({formatPercent(company.priceChangePct)})
+                </span>
+                {company.priceToEarnings != null && ` · P/L ${company.priceToEarnings.toFixed(2).replace(".", ",")}`}
+                {company.dividendYield != null && company.dividendYield > 0 && ` · DY ${formatPercent(company.dividendYield)}`}
+                {company.roe != null && ` · ROE ${formatPercent(company.roe)}`}
+              </p>
             ))}
           </div>
         )}

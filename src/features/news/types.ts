@@ -38,6 +38,14 @@ export interface NewsMatchedCompany {
   priceSource: PriceSource
   priceCents: number
   priceChangePct: number
+  /// Same narrow fundamentals ARTICLE_INCLUDE already fetches for the AI
+  /// facts builder (buildNewsFacts) — threaded through here too so the
+  /// card's own UI can show "P/L 8,4 · DY 9,2%" under the ticker chip
+  /// instead of only ever feeding an AI prompt with numbers the user never
+  /// sees directly.
+  priceToEarnings: number | null
+  roe: number | null
+  dividendYield: number | null
   isOwned: boolean
   isAlerted: boolean
   isFavorited: boolean

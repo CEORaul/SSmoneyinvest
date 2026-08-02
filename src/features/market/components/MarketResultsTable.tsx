@@ -16,6 +16,7 @@ import { LiveMarketCapText } from "@/components/shared/live-market/LiveMarketCap
 import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
 import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
+import { getIndicatorDisplay } from "@/features/company/indicators"
 import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { QuickActionsMenu } from "@/features/market/components/QuickActionsMenu"
@@ -46,6 +47,9 @@ export function MarketResultsTable({ rows }: MarketResultsTableProps) {
             <TableHead className="text-right">P/L</TableHead>
             <TableHead className="text-right">P/VP</TableHead>
             <TableHead className="text-right">ROE</TableHead>
+            <TableHead className="text-right">PSR</TableHead>
+            <TableHead className="text-right">EV/EBITDA</TableHead>
+            <TableHead className="text-right">Margem Líquida</TableHead>
             <TableHead className="text-right">Market Cap</TableHead>
             <TableHead>Setor</TableHead>
             <TableHead className="text-right">Volume</TableHead>
@@ -86,6 +90,15 @@ export function MarketResultsTable({ rows }: MarketResultsTableProps) {
               <TableCell className="text-right tabular-nums">{formatRatio(asset.priceToBook)}</TableCell>
               <TableCell className="text-right tabular-nums">
                 {asset.roe != null ? formatPercent(asset.roe) : "—"}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {getIndicatorDisplay(asset, "psr")?.formatted ?? "—"}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {getIndicatorDisplay(asset, "evToEbitda")?.formatted ?? "—"}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {getIndicatorDisplay(asset, "netMargin")?.formatted ?? "—"}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <LiveMarketCapText id={asset.id} priceCents={asset.priceCents} marketCapCents={asset.marketCapCents} fallback="—" />

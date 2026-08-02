@@ -18,6 +18,12 @@ export interface PriceAlertRow {
   triggeredAt: string | null
   triggeredPriceCents: number | null
   createdAt: string
+  /// Quick fundamentals for the card's "PETR4 · P/L 4,2 · DY 14%" line — a
+  /// narrow, purpose-picked select (not the full Stock/Fii/Etf relation),
+  /// same convention as GlobalSearchResult's equivalent fields.
+  priceToEarnings: number | null
+  roe: number | null
+  dividendYield: number | null
 }
 
 /// One row in the notification bell — carries its own target/triggered

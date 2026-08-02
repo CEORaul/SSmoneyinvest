@@ -7,10 +7,13 @@ import { LivePriceText } from "@/components/shared/live-market/LivePriceText"
 import { LiveVolumeText } from "@/components/shared/live-market/LiveVolumeText"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { getEtfHighlights } from "@/features/market/dashboard-queries"
+import { formatPercent } from "@/utils/format"
 
-/// Mercado 2.0's "ETFs" — Preço/Variação/Volume per the spec's own field
-/// list, sourced from the same searchMarketAssets the filter board runs
-/// (see dashboard-queries.ts's getEtfHighlights).
+/// Mercado 2.0's "ETFs" — Preço/Variação/Volume/P-VP/DY, sourced from the
+/// same searchMarketAssets the filter board runs (see dashboard-queries.ts's
+/// getEtfHighlights). priceToBook/dividendYieldPct already arrived on every
+/// row from that shared query — this component just wasn't rendering them
+/// yet (a pure UI gap, not a missing fetch).
 export async function MarketEtfHighlights() {
   const etfs = await getEtfHighlights(8)
 
@@ -34,6 +37,12 @@ export async function MarketEtfHighlights() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{etf.ticker}</p>
                 <p className="truncate text-xs text-muted-foreground">{etf.name}</p>
+              </div>
+              <div className="hidden flex-col items-end gap-0.5 text-xs text-muted-foreground sm:flex">
+                {etf.priceToBook != null && <span>P/VP {etf.priceToBook.toFixed(2).replace(".", ",")}</span>}
+                {etf.dividendYieldPct != null && etf.dividendYieldPct > 0 && (
+                  <span>DY {formatPercent(etf.dividendYieldPct)}</span>
+                )}
               </div>
               <div className="flex flex-col items-end gap-0.5">
                 <LivePriceText id={etf.id} priceCents={etf.priceCents} className="text-sm font-medium tabular-nums" />

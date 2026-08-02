@@ -5,7 +5,16 @@ import type { AlertNotificationRow, PriceAlertRow } from "@/features/alerts/type
 
 const ALERT_INCLUDE = {
   company: {
-    select: { ticker: true, name: true, logoUrl: true, assetClass: true, priceCents: true },
+    select: {
+      ticker: true,
+      name: true,
+      logoUrl: true,
+      assetClass: true,
+      priceCents: true,
+      stock: { select: { priceToEarnings: true, roe: true, dividendYield: true } },
+      fii: { select: { dividendYield: true } },
+      etf: { select: { dividendYield: true } },
+    },
   },
 } as const
 
@@ -30,6 +39,13 @@ export async function getAlertsForProfile(profileId: string): Promise<PriceAlert
     triggeredAt: row.triggeredAt?.toISOString() ?? null,
     triggeredPriceCents: row.triggeredPriceCents,
     createdAt: row.createdAt.toISOString(),
+    priceToEarnings: row.company.stock?.priceToEarnings?.toNumber() ?? null,
+    roe: row.company.stock?.roe?.toNumber() ?? null,
+    dividendYield:
+      row.company.stock?.dividendYield?.toNumber() ??
+      row.company.fii?.dividendYield?.toNumber() ??
+      row.company.etf?.dividendYield?.toNumber() ??
+      null,
   }))
 }
 

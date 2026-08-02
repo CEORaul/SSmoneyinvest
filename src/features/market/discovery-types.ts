@@ -1,4 +1,5 @@
 import type { AssetClass, PriceSource } from "@/generated/prisma/client"
+import type { CompanyEtfFundamentals, CompanyFiiFundamentals, CompanyStockFundamentals } from "@/features/company/queries"
 
 /// Shared shapes for /mercado — kept separate from discovery-queries.ts so
 /// client components can import types without pulling in "server-only" code.
@@ -120,7 +121,17 @@ export interface MarketAssetRow {
   priceToBook: number | null
   roe: number | null
   marketCapCents: bigint | null
+  employees: number | null
   volume: bigint | null
+  /// Full fundamentals, same shape getCompanyByTicker's DTO carries — lets
+  /// Mercado's cards/table render FinancialHighlights/IndicatorBadge
+  /// (PSR, EV/EBITDA, Margem Líquida, Dívida Líquida/EBITDA, etc.) without
+  /// a second query. priceToEarnings/priceToBook/roe above stay as their
+  /// own flat fields too since discovery-queries.ts's in-memory sort/filter
+  /// already depends on them directly.
+  stock: CompanyStockFundamentals | null
+  fii: CompanyFiiFundamentals | null
+  etf: CompanyEtfFundamentals | null
 }
 
 export interface MarketSearchResult {

@@ -1,10 +1,13 @@
 import "server-only"
 
 import type { AssetClass } from "@/generated/prisma/client"
+import { mapStockFundamentals } from "@/features/company/queries"
 import { TRAILING_DIVIDEND_WINDOW_DAYS } from "@/features/market/dividend-yield"
 import { getTrendingAssets } from "@/features/search/queries"
 import { prisma } from "@/lib/prisma"
 import type { CompanyListItem } from "@/types"
+
+const MOVERS_INCLUDE = { stock: true } as const
 
 interface CompanyRow {
   id: string
@@ -14,6 +17,9 @@ interface CompanyRow {
   priceCents: number
   priceChangePct: unknown
   volume: bigint | null
+  sector: string | null
+  marketCapCents: bigint | null
+  stock?: Parameters<typeof mapStockFundamentals>[0]
 }
 
 function toListItem(company: CompanyRow, dividendYield = 0): CompanyListItem {
@@ -26,6 +32,9 @@ function toListItem(company: CompanyRow, dividendYield = 0): CompanyListItem {
     changePct: Number(company.priceChangePct),
     dividendYield,
     volume: company.volume,
+    sector: company.sector,
+    marketCapCents: company.marketCapCents,
+    stock: mapStockFundamentals(company.stock ?? null),
   }
 }
 
@@ -38,6 +47,7 @@ export async function getTopGainers(limit = 4): Promise<CompanyListItem[]> {
     where: { priceCents: { gt: 0 } },
     orderBy: { priceChangePct: "desc" },
     take: limit,
+    include: MOVERS_INCLUDE,
   })
   return companies.map((company) => toListItem(company))
 }
@@ -47,6 +57,7 @@ export async function getTopLosers(limit = 4): Promise<CompanyListItem[]> {
     where: { priceCents: { gt: 0 } },
     orderBy: { priceChangePct: "asc" },
     take: limit,
+    include: MOVERS_INCLUDE,
   })
   return companies.map((company) => toListItem(company))
 }
@@ -58,6 +69,7 @@ export async function getHighlightedCompanies(limit = 4): Promise<CompanyListIte
     where: { marketCapCents: { not: null } },
     orderBy: { marketCapCents: "desc" },
     take: limit,
+    include: MOVERS_INCLUDE,
   })
   return companies.map((company) => toListItem(company))
 }
@@ -83,6 +95,7 @@ export async function getTopDividendPayers(limit = 4): Promise<CompanyListItem[]
 
   const companies = await prisma.company.findMany({
     where: { id: { in: [...totalByCompanyId.keys()] }, priceCents: { gt: 0 } },
+    include: MOVERS_INCLUDE,
   })
 
   return companies
@@ -125,6 +138,7 @@ export async function getCompaniesByAssetClass(assetClass: AssetClass): Promise<
   const companies = await prisma.company.findMany({
     where: { assetClass, priceCents: { gt: 0 } },
     orderBy: { marketCapCents: "desc" },
+    include: MOVERS_INCLUDE,
   })
   return companies.map((company) => toListItem(company))
 }

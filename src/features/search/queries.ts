@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { AssetClass } from "@/generated/prisma/client"
+import { mapStockFundamentals } from "@/features/company/queries"
 import { prisma } from "@/lib/prisma"
 import type { CompanyListItem } from "@/types"
 
@@ -26,6 +27,15 @@ export interface GlobalSearchResult {
   priceCents: number
   changePct: number
   volume: bigint | null
+  /// A narrow, purpose-picked pair (not the full ~25-column Stock/Fii
+  /// relation) — enough to show "DY 9,2% · P/L 8,4" under a search result
+  /// without fetching fundamentals this compact row never displays.
+  /// Optional — a few producers of this shape (favorites, portfolio
+  /// positions, localStorage-backed recent history) don't carry it; those
+  /// rows just render without the DY/P-L line rather than requiring every
+  /// producer to thread it through.
+  priceToEarnings?: number | null
+  dividendYield?: number | null
 }
 
 const SEARCH_RESULT_SELECT = {
@@ -38,6 +48,9 @@ const SEARCH_RESULT_SELECT = {
   priceCents: true,
   priceChangePct: true,
   volume: true,
+  stock: { select: { priceToEarnings: true, dividendYield: true } },
+  fii: { select: { dividendYield: true } },
+  etf: { select: { dividendYield: true } },
 } as const
 
 type SearchResultRow = {
@@ -50,6 +63,9 @@ type SearchResultRow = {
   priceCents: number
   priceChangePct: unknown
   volume: bigint | null
+  stock: { priceToEarnings: { toNumber(): number } | null; dividendYield: { toNumber(): number } | null } | null
+  fii: { dividendYield: { toNumber(): number } | null } | null
+  etf: { dividendYield: { toNumber(): number } | null } | null
 }
 
 function toGlobalSearchResult(row: SearchResultRow): GlobalSearchResult {
@@ -63,6 +79,8 @@ function toGlobalSearchResult(row: SearchResultRow): GlobalSearchResult {
     priceCents: row.priceCents,
     changePct: Number(row.priceChangePct),
     volume: row.volume,
+    priceToEarnings: row.stock?.priceToEarnings?.toNumber() ?? null,
+    dividendYield: row.stock?.dividendYield?.toNumber() ?? row.fii?.dividendYield?.toNumber() ?? row.etf?.dividendYield?.toNumber() ?? null,
   }
 }
 
@@ -223,6 +241,7 @@ export async function getTopByVolume(limit = 6): Promise<CompanyListItem[]> {
     where: { volume: { not: null }, priceCents: { gt: 0 } },
     orderBy: { volume: "desc" },
     take: limit,
+    include: { stock: true },
   })
   return companies.map((company) => ({
     id: company.id,
@@ -233,6 +252,9 @@ export async function getTopByVolume(limit = 6): Promise<CompanyListItem[]> {
     changePct: Number(company.priceChangePct),
     dividendYield: 0,
     volume: company.volume,
+    sector: company.sector,
+    marketCapCents: company.marketCapCents,
+    stock: mapStockFundamentals(company.stock),
   }))
 }
 

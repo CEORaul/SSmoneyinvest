@@ -43,6 +43,7 @@ import { AnimatedNumber } from "@/components/shared/AnimatedNumber"
 import { TickerBadge } from "@/components/shared/TickerBadge"
 import { useLiveMarketPrice } from "@/hooks/use-live-market-price"
 import { toggleFavoriteAction } from "@/features/company/actions"
+import { getIndicatorDisplay } from "@/features/company/indicators"
 import { translateSector } from "@/features/company/sector-labels"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { ExpandedPositionDetail } from "@/features/portfolio/components/ExpandedPositionDetail"
@@ -53,6 +54,14 @@ import { cn } from "@/lib/utils"
 import { formatCurrencyCents, formatPercent, formatRelativeTime } from "@/utils/format"
 
 export type PositionActionType = "buy" | "sell" | "income" | "adjustment" | "history"
+
+function formatRatio(value: number | null): string {
+  return value != null ? value.toFixed(2).replace(".", ",") : "—"
+}
+
+function formatPercentOrDash(value: number | null): string {
+  return value != null ? formatPercent(value) : "—"
+}
 
 /// Owns the "Preço atual"/"Variação diária" cells for one row — a real
 /// component (not an inline render inside .map()) because it calls
@@ -199,6 +208,14 @@ export function CategorySection({
             <span className="font-semibold tabular-nums">{formatPercent(group.totals.avgYieldOnCostPct)}</span>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground">P/L médio</p>
+            <span className="font-semibold tabular-nums">{formatRatio(group.totals.avgPLRatio)}</span>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">ROE médio</p>
+            <span className="font-semibold tabular-nums">{formatPercentOrDash(group.totals.avgRoePct)}</span>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground">% carteira</p>
             <span className="font-semibold tabular-nums">
               {formatPercent(group.totals.allocationPct)}
@@ -257,6 +274,22 @@ export function CategorySection({
               <p className="text-xs text-muted-foreground">Participação</p>
               <p className="font-medium tabular-nums">{formatPercent(group.totals.allocationPct)}</p>
             </div>
+            <div>
+              <p className="text-xs text-muted-foreground">P/L médio</p>
+              <p className="font-medium tabular-nums">{formatRatio(group.totals.avgPLRatio)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">ROE médio</p>
+              <p className="font-medium tabular-nums">{formatPercentOrDash(group.totals.avgRoePct)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valor Patrimonial médio</p>
+              <p className="font-medium tabular-nums">
+                {group.totals.avgBookValuePerShareCents != null
+                  ? formatCurrencyCents(group.totals.avgBookValuePerShareCents)
+                  : "—"}
+              </p>
+            </div>
           </div>
 
           {!sortOverride && (
@@ -294,6 +327,8 @@ export function CategorySection({
                   <TableHead className="text-right">Rentabilidade</TableHead>
                   <TableHead className="text-right">Dividend Yield</TableHead>
                   <TableHead className="text-right">Yield on Cost</TableHead>
+                  <TableHead className="text-right">P/L</TableHead>
+                  <TableHead className="text-right">ROE</TableHead>
                   <TableHead className="text-right">Participação</TableHead>
                   <TableHead className="text-right">Atualizado</TableHead>
                   <TableHead className="w-10" />
@@ -394,6 +429,12 @@ export function CategorySection({
                           {formatPercent(position.yieldOnCostPct)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
+                          {getIndicatorDisplay(position, "priceToEarnings")?.formatted ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {getIndicatorDisplay(position, "roe")?.formatted ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {formatPercent(position.allocationPct)}
                         </TableCell>
                         {/* "há Xs" necessarily reads differently between the
@@ -474,7 +515,7 @@ export function CategorySection({
                       </TableRow>
                       {isRowExpanded && (
                         <TableRow key={`${position.id}-detail`}>
-                          <TableCell colSpan={17} className="bg-muted/20 p-0">
+                          <TableCell colSpan={19} className="bg-muted/20 p-0">
                             <ExpandedPositionDetail
                               companyId={position.companyId}
                               ticker={position.ticker}

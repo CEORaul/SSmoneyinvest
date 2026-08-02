@@ -2,7 +2,7 @@ import "server-only"
 
 import { Prisma, type AssetClass } from "@/generated/prisma/client"
 import { getAlertedCompanyIds } from "@/features/alerts/queries"
-import { getFavoriteCompanies } from "@/features/company/queries"
+import { getFavoriteCompanies, mapEtfFundamentals, mapFiiFundamentals, mapStockFundamentals } from "@/features/company/queries"
 import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
 import { getPortfolioSummary } from "@/features/portfolio/queries"
 import { prisma } from "@/lib/prisma"
@@ -25,9 +25,14 @@ import type { MarketAssetRow, MarketFilters, MarketSearchResult, MarketSortOptio
 
 const CANDIDATE_CAP = 3000
 
+// Full relation, not a narrow select — same single query either way, and a
+// full include is what lets hydrateRows below hand FinancialHighlights/
+// IndicatorBadge the same CompanyStockFundamentals/Fii/Etf shape every other
+// page uses, instead of hand-flattening a handful of fields at a time.
 const COMPANY_INCLUDE = {
-  stock: { select: { priceToEarnings: true, priceToBook: true, roe: true } },
-  fii: { select: { priceToBook: true } },
+  stock: true,
+  fii: true,
+  etf: true,
 } satisfies Prisma.CompanyInclude
 
 type CompanyWithFundamentals = Prisma.CompanyGetPayload<{ include: typeof COMPANY_INCLUDE }>
@@ -120,28 +125,32 @@ async function hydrateRows(companies: CompanyWithFundamentals[]): Promise<Market
     companies.map((c) => ({ id: c.id, priceCents: c.priceCents }))
   )
 
-  return companies.map((c) => ({
-    id: c.id,
-    ticker: c.ticker,
-    name: c.name,
-    logoUrl: c.logoUrl,
-    assetClass: c.assetClass,
-    priceSource: c.priceSource,
-    sector: c.sector,
-    priceCents: c.priceCents,
-    priceChangePct: Number(c.priceChangePct),
-    dividendYieldPct: dividendYields.get(c.id) ?? 0,
-    priceToEarnings: c.stock?.priceToEarnings != null ? Number(c.stock.priceToEarnings) : null,
-    priceToBook:
-      c.stock?.priceToBook != null
-        ? Number(c.stock.priceToBook)
-        : c.fii?.priceToBook != null
-          ? Number(c.fii.priceToBook)
-          : null,
-    roe: c.stock?.roe != null ? Number(c.stock.roe) : null,
-    marketCapCents: c.marketCapCents,
-    volume: c.volume,
-  }))
+  return companies.map((c) => {
+    const stock = mapStockFundamentals(c.stock)
+    const fii = mapFiiFundamentals(c.fii)
+    const etf = mapEtfFundamentals(c.etf)
+    return {
+      id: c.id,
+      ticker: c.ticker,
+      name: c.name,
+      logoUrl: c.logoUrl,
+      assetClass: c.assetClass,
+      priceSource: c.priceSource,
+      sector: c.sector,
+      priceCents: c.priceCents,
+      priceChangePct: Number(c.priceChangePct),
+      marketCapCents: c.marketCapCents,
+      employees: c.employees,
+      dividendYieldPct: dividendYields.get(c.id) ?? 0,
+      priceToEarnings: stock?.priceToEarnings ?? null,
+      priceToBook: stock?.priceToBook ?? fii?.priceToBook ?? null,
+      roe: stock?.roe ?? null,
+      volume: c.volume,
+      stock,
+      fii,
+      etf,
+    }
+  })
 }
 
 /// rows are assumed already hydrated (dividendYieldPct/roe/priceToEarnings

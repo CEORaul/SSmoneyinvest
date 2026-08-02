@@ -78,6 +78,17 @@ export function AlertCard({ alert, onEdit, onChanged }: AlertCardProps) {
           <div>
             <p className="text-sm font-semibold">{alert.ticker}</p>
             <p className="text-xs text-muted-foreground">{alert.name}</p>
+            {(alert.priceToEarnings != null || alert.roe != null || alert.dividendYield != null) && (
+              <p className="text-[11px] text-muted-foreground">
+                {[
+                  alert.priceToEarnings != null && `P/L ${alert.priceToEarnings.toFixed(2).replace(".", ",")}`,
+                  alert.dividendYield != null && alert.dividendYield > 0 && `DY ${alert.dividendYield.toFixed(2).replace(".", ",")}%`,
+                  alert.roe != null && `ROE ${alert.roe.toFixed(2).replace(".", ",")}%`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </div>
         </div>
         <DropdownMenu>

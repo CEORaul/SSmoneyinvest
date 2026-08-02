@@ -1,5 +1,33 @@
 import type { AssetClass } from "@/generated/prisma/client"
-import type { CompanyDetailDTO } from "@/features/company/queries"
+import type {
+  CompanyEtfFundamentals,
+  CompanyFiiFundamentals,
+  CompanyStockFundamentals,
+} from "@/features/company/queries"
+
+/// The minimal shape any indicator's getValue actually reads — deliberately
+/// narrower than the full CompanyDetailDTO (which also carries description/
+/// sector/website/etc. that no indicator touches). Every page's own query
+/// result that already includes stock/fii/etf (even a narrow `select`, not
+/// the full DTO) can satisfy this without an extra fetch — that's what lets
+/// Radar/Notícias/Busca/Alertas reuse FinancialMetric/IndicatorBadge without
+/// each needing a full getCompanyByTicker-style call. A full CompanyDetailDTO
+/// always satisfies this structurally, so every existing full-DTO caller
+/// (page.tsx, coverage.ts, table-highlights.ts) keeps working unchanged.
+export interface CompanyMetricsSource {
+  priceCents?: number
+  priceChangePct?: number
+  /// Optional — pages whose query never selected these (most narrow
+  /// selects don't) simply can't resolve enterpriseValue/employees, which
+  /// then honestly render "—" (definition.getValue's `!= null` checks treat
+  /// undefined the same as null) rather than requiring every caller to
+  /// widen its select just to satisfy this interface.
+  marketCapCents?: bigint | null
+  employees?: number | null
+  stock: CompanyStockFundamentals | null
+  fii: CompanyFiiFundamentals | null
+  etf: CompanyEtfFundamentals | null
+}
 
 export type IndicatorUnit = "ratio" | "percent" | "currency" | "count" | "years"
 
@@ -52,7 +80,7 @@ export interface IndicatorDefinition {
   /// on the percentage.
   availability: "sourced" | "never-available"
   direction: IndicatorDirection
-  getValue(dto: CompanyDetailDTO): number | null
+  getValue(dto: CompanyMetricsSource): number | null
 }
 
 const STOCK_AND_BDR: AssetClass[] = ["STOCK", "BDR"]
@@ -81,11 +109,14 @@ export const INDICATOR_DEFINITIONS: IndicatorDefinition[] = [
     label: "P/VP",
     unit: "ratio",
     category: "Valuation",
-    description: "Preço da ação dividido pelo valor patrimonial por ação — compara o preço de mercado ao patrimônio contábil da empresa.",
-    assetClasses: STOCK_AND_BDR,
+    description: "Preço dividido pelo valor patrimonial por ação/cota — compara o preço de mercado ao patrimônio contábil.",
+    // FIIs também têm um P/VP real e já persistido (Fii.priceToBook) — a
+    // mesma métrica, calculada da mesma forma, então ela entra no mesmo
+    // indicador em vez de precisar de uma segunda definição "P/VP FII".
+    assetClasses: ["STOCK", "BDR", "FII"],
     availability: "sourced",
     direction: "lower-is-better",
-    getValue: (d) => d.stock?.priceToBook ?? null,
+    getValue: (d) => d.stock?.priceToBook ?? d.fii?.priceToBook ?? null,
   },
   {
     key: "psr",
@@ -487,4 +518,28 @@ export function formatIndicatorValue(value: number, unit: IndicatorUnit): string
       // for every "ratio" indicator rather than special-casing a few keys.
       return value.toFixed(2).replace(".", ",")
   }
+}
+
+export function getIndicatorDefinition(key: string): IndicatorDefinition | undefined {
+  return INDICATOR_DEFINITIONS.find((indicator) => indicator.key === key)
+}
+
+export interface IndicatorDisplay {
+  definition: IndicatorDefinition
+  value: number | null
+  formatted: string | null
+}
+
+/// The one place a (dto, key) pair turns into a ready-to-render value —
+/// every shared metric component (FinancialMetric, IndicatorBadge,
+/// CompanyQuickStats, FinancialHighlights, FundamentalIndicatorCard) calls
+/// this instead of separately re-deriving definition.getValue(dto) +
+/// formatIndicatorValue. Returns null only when `key` isn't a real
+/// indicator (a programming error, not a data-availability question — a
+/// missing VALUE still returns a display with formatted: null).
+export function getIndicatorDisplay(dto: CompanyMetricsSource, key: string): IndicatorDisplay | null {
+  const definition = getIndicatorDefinition(key)
+  if (!definition) return null
+  const value = definition.getValue(dto)
+  return { definition, value, formatted: value != null ? formatIndicatorValue(value, definition.unit) : null }
 }

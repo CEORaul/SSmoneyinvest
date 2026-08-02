@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { AssetClass } from "@/generated/prisma/client"
+import type { AssetClass, Etf, Fii, Stock } from "@/generated/prisma/client"
 import type { CompanyGetPayload } from "@/generated/prisma/models/Company"
 import { getTrailingDividendYieldMap } from "@/features/market/dividend-yield"
 import { getAssetCategoryMeta } from "@/features/portfolio/asset-category"
@@ -97,6 +97,70 @@ function toDecimalOrNull(value: { toNumber(): number } | null | undefined): numb
   return value == null ? null : value.toNumber()
 }
 
+/// Extracted so any query that includes `stock`/`fii`/`etf` on a Company row
+/// (not just getCompanyByTicker's full DTO) can map them through the exact
+/// same Decimal/BigInt serialization — e.g. Carteira's portfolio query,
+/// which needs the same fundamentals for P/L médio/ROE médio without going
+/// through the full CompanyDetailDTO shape.
+export function mapStockFundamentals(stock: Stock | null): CompanyStockFundamentals | null {
+  if (!stock) return null
+  return {
+    priceToEarnings: toDecimalOrNull(stock.priceToEarnings),
+    priceToBook: toDecimalOrNull(stock.priceToBook),
+    roe: toDecimalOrNull(stock.roe),
+    roic: toDecimalOrNull(stock.roic),
+    roa: toDecimalOrNull(stock.roa),
+    dividendYield: toDecimalOrNull(stock.dividendYield),
+    netMargin: toDecimalOrNull(stock.netMargin),
+    grossMargin: toDecimalOrNull(stock.grossMargin),
+    ebitdaMargin: toDecimalOrNull(stock.ebitdaMargin),
+    psr: toDecimalOrNull(stock.psr),
+    evToEbit: toDecimalOrNull(stock.evToEbit),
+    evToEbitda: toDecimalOrNull(stock.evToEbitda),
+    payout: toDecimalOrNull(stock.payout),
+    currentLiquidity: toDecimalOrNull(stock.currentLiquidity),
+    netDebtToEbitda: toDecimalOrNull(stock.netDebtToEbitda),
+    revenueCagr3y: toDecimalOrNull(stock.revenueCagr3y),
+    netIncomeCagr3y: toDecimalOrNull(stock.netIncomeCagr3y),
+    freeFloatPct: toDecimalOrNull(stock.freeFloatPct),
+    beta: toDecimalOrNull(stock.beta),
+    netDebtCents: stock.netDebtCents,
+    equityCents: stock.equityCents,
+    revenueCents: stock.revenueCents,
+    netIncomeCents: stock.netIncomeCents,
+    ebitdaCents: stock.ebitdaCents,
+    grossDebtCents: stock.grossDebtCents,
+    bookValuePerShareCents: stock.bookValuePerShareCents,
+    sharesOutstanding: stock.sharesOutstanding,
+    freeCashFlowCents: stock.freeCashFlowCents,
+    operatingCashFlowCents: stock.operatingCashFlowCents,
+  }
+}
+
+export function mapFiiFundamentals(fii: Fii | null): CompanyFiiFundamentals | null {
+  if (!fii) return null
+  return {
+    priceToBook: toDecimalOrNull(fii.priceToBook),
+    dividendYield: toDecimalOrNull(fii.dividendYield),
+    netWorthCents: fii.netWorthCents,
+    managementFee: toDecimalOrNull(fii.managementFee),
+    vacancyRate: toDecimalOrNull(fii.vacancyRate),
+    propertyCount: fii.propertyCount,
+    quotaCount: fii.quotaCount,
+    administrator: fii.administrator,
+  }
+}
+
+export function mapEtfFundamentals(etf: Etf | null): CompanyEtfFundamentals | null {
+  if (!etf) return null
+  return {
+    benchmarkIndex: etf.benchmarkIndex,
+    expenseRatio: toDecimalOrNull(etf.expenseRatio),
+    navCents: etf.navCents,
+    dividendYield: toDecimalOrNull(etf.dividendYield),
+  }
+}
+
 /// Exported so src/features/comparator/queries.ts can map a batched
 /// findMany's rows through the exact same Decimal/BigInt serialization,
 /// instead of re-implementing it or calling this module N times.
@@ -126,59 +190,9 @@ export function toDetailDTO(
     detailsSyncedAt: company.detailsSyncedAt,
     lastQuoteAt: company.lastQuoteAt,
     updatedAt: company.updatedAt,
-    stock: company.stock
-      ? {
-          priceToEarnings: toDecimalOrNull(company.stock.priceToEarnings),
-          priceToBook: toDecimalOrNull(company.stock.priceToBook),
-          roe: toDecimalOrNull(company.stock.roe),
-          roic: toDecimalOrNull(company.stock.roic),
-          roa: toDecimalOrNull(company.stock.roa),
-          dividendYield: toDecimalOrNull(company.stock.dividendYield),
-          netMargin: toDecimalOrNull(company.stock.netMargin),
-          grossMargin: toDecimalOrNull(company.stock.grossMargin),
-          ebitdaMargin: toDecimalOrNull(company.stock.ebitdaMargin),
-          psr: toDecimalOrNull(company.stock.psr),
-          evToEbit: toDecimalOrNull(company.stock.evToEbit),
-          evToEbitda: toDecimalOrNull(company.stock.evToEbitda),
-          payout: toDecimalOrNull(company.stock.payout),
-          currentLiquidity: toDecimalOrNull(company.stock.currentLiquidity),
-          netDebtToEbitda: toDecimalOrNull(company.stock.netDebtToEbitda),
-          revenueCagr3y: toDecimalOrNull(company.stock.revenueCagr3y),
-          netIncomeCagr3y: toDecimalOrNull(company.stock.netIncomeCagr3y),
-          freeFloatPct: toDecimalOrNull(company.stock.freeFloatPct),
-          beta: toDecimalOrNull(company.stock.beta),
-          netDebtCents: company.stock.netDebtCents,
-          equityCents: company.stock.equityCents,
-          revenueCents: company.stock.revenueCents,
-          netIncomeCents: company.stock.netIncomeCents,
-          ebitdaCents: company.stock.ebitdaCents,
-          grossDebtCents: company.stock.grossDebtCents,
-          bookValuePerShareCents: company.stock.bookValuePerShareCents,
-          sharesOutstanding: company.stock.sharesOutstanding,
-          freeCashFlowCents: company.stock.freeCashFlowCents,
-          operatingCashFlowCents: company.stock.operatingCashFlowCents,
-        }
-      : null,
-    fii: company.fii
-      ? {
-          priceToBook: toDecimalOrNull(company.fii.priceToBook),
-          dividendYield: toDecimalOrNull(company.fii.dividendYield),
-          netWorthCents: company.fii.netWorthCents,
-          managementFee: toDecimalOrNull(company.fii.managementFee),
-          vacancyRate: toDecimalOrNull(company.fii.vacancyRate),
-          propertyCount: company.fii.propertyCount,
-          quotaCount: company.fii.quotaCount,
-          administrator: company.fii.administrator,
-        }
-      : null,
-    etf: company.etf
-      ? {
-          benchmarkIndex: company.etf.benchmarkIndex,
-          expenseRatio: toDecimalOrNull(company.etf.expenseRatio),
-          navCents: company.etf.navCents,
-          dividendYield: toDecimalOrNull(company.etf.dividendYield),
-        }
-      : null,
+    stock: mapStockFundamentals(company.stock),
+    fii: mapFiiFundamentals(company.fii),
+    etf: mapEtfFundamentals(company.etf),
   }
 }
 
@@ -471,7 +485,7 @@ export interface FavoriteCompanyItem extends CompanyListItem {
 export async function getFavoriteCompanies(profileId: string): Promise<FavoriteCompanyItem[]> {
   const favorites = await prisma.favorite.findMany({
     where: { profileId },
-    include: { company: true },
+    include: { company: { include: { stock: true, fii: true, etf: true } } },
     orderBy: { createdAt: "desc" },
   })
   if (favorites.length === 0) return []
@@ -490,6 +504,8 @@ export async function getFavoriteCompanies(profileId: string): Promise<FavoriteC
     priceCents: favorite.company.priceCents,
     changePct: Number(favorite.company.priceChangePct),
     dividendYield: dividendYields.get(favorite.companyId) ?? 0,
+    marketCapCents: favorite.company.marketCapCents,
+    stock: mapStockFundamentals(favorite.company.stock),
   }))
 }
 

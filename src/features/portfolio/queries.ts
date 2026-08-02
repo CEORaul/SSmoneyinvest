@@ -1,10 +1,30 @@
 import "server-only"
 
 import type { AssetClass, PriceSource } from "@/generated/prisma/client"
+import {
+  mapEtfFundamentals,
+  mapFiiFundamentals,
+  mapStockFundamentals,
+  type CompanyEtfFundamentals,
+  type CompanyFiiFundamentals,
+  type CompanyStockFundamentals,
+} from "@/features/company/queries"
 import { computeYieldOnCost, getTrailingDividendPerShareMap } from "@/features/market/dividend-yield"
 import { ASSET_CATEGORIES, getAssetCategoryMeta } from "@/features/portfolio/asset-category"
 import { computePositionMetrics } from "@/features/portfolio/position-metrics"
 import { prisma } from "@/lib/prisma"
+
+/// Value-weighted average that silently skips any row with no value for
+/// this field, rather than treating a missing value as 0 — a category where
+/// only 1 of 5 positions has real P/L data still gets that position's real
+/// P/L as the average, not a P/L dragged down by four phantom zeros.
+/// Returns null (never a fabricated 0) when nothing in the set has a value.
+function weightedAverageIgnoringNulls(rows: { value: number | null; weight: number }[]): number | null {
+  const valid = rows.filter((row): row is { value: number; weight: number } => row.value != null && row.weight > 0)
+  const totalWeight = valid.reduce((sum, row) => sum + row.weight, 0)
+  if (totalWeight === 0) return null
+  return valid.reduce((sum, row) => sum + row.value * row.weight, 0) / totalWeight
+}
 
 export interface PortfolioPositionRow {
   id: string
@@ -31,6 +51,12 @@ export interface PortfolioPositionRow {
   dividendsReceivedCents: number
   allocationPct: number
   lastUpdatedAt: Date
+  /// Real fundamentals for this position's company — same shape
+  /// getCompanyByTicker's DTO carries, so CategorySection can render
+  /// CompanyQuickStats/FinancialMetric badges without a second fetch.
+  stock: CompanyStockFundamentals | null
+  fii: CompanyFiiFundamentals | null
+  etf: CompanyEtfFundamentals | null
 }
 
 export interface PortfolioTotals {
@@ -58,6 +84,11 @@ export interface PortfolioCategoryGroup {
     /// "preço médio geral" in the category summary, not a per-ticker figure
     /// (those already exist per-row).
     avgPurchasePriceCents: number
+    /// Null (not 0) when no position in the category has this field —
+    /// e.g. a category of only FIIs never has a P/L average, honestly.
+    avgPLRatio: number | null
+    avgRoePct: number | null
+    avgBookValuePerShareCents: number | null
   }
 }
 
@@ -122,6 +153,15 @@ function groupPositionsByCategory(
         ? rows.reduce((sum, row) => sum + row.averagePriceCents * row.currentValueCents, 0) /
           currentValueCents
         : 0
+    const avgPLRatio = weightedAverageIgnoringNulls(
+      rows.map((row) => ({ value: row.stock?.priceToEarnings ?? null, weight: row.currentValueCents }))
+    )
+    const avgRoePct = weightedAverageIgnoringNulls(
+      rows.map((row) => ({ value: row.stock?.roe ?? null, weight: row.currentValueCents }))
+    )
+    const avgBookValuePerShareCents = weightedAverageIgnoringNulls(
+      rows.map((row) => ({ value: row.stock?.bookValuePerShareCents ?? null, weight: row.currentValueCents }))
+    )
 
     const group: PortfolioCategoryGroup = {
       category: category.value,
@@ -137,6 +177,9 @@ function groupPositionsByCategory(
         avgDividendYieldPct,
         avgYieldOnCostPct,
         avgPurchasePriceCents,
+        avgPLRatio,
+        avgRoePct,
+        avgBookValuePerShareCents,
         allocationPct:
           portfolioCurrentValueCents > 0
             ? (currentValueCents / portfolioCurrentValueCents) * 100
@@ -155,7 +198,7 @@ function groupPositionsByCategory(
 export async function getPortfolioSummary(profileId: string): Promise<PortfolioSummary> {
   const positions = await prisma.portfolioPosition.findMany({
     where: { profileId, quantity: { gt: 0 } },
-    include: { company: true },
+    include: { company: { include: { stock: true, fii: true, etf: true } } },
   })
 
   if (positions.length === 0) {
@@ -205,6 +248,9 @@ export async function getPortfolioSummary(profileId: string): Promise<PortfolioS
         allocationPct:
           totalCurrentValueCents > 0 ? (currentValueCents / totalCurrentValueCents) * 100 : 0,
         lastUpdatedAt: position.company.updatedAt,
+        stock: mapStockFundamentals(position.company.stock),
+        fii: mapFiiFundamentals(position.company.fii),
+        etf: mapEtfFundamentals(position.company.etf),
       }
     }
   )

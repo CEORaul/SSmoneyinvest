@@ -29,7 +29,7 @@ import {
   type LocalHistoryItem,
 } from "@/features/search/local-history"
 import { cn } from "@/lib/utils"
-import { formatCurrencyCents } from "@/utils/format"
+import { formatCurrencyCents, formatPercent } from "@/utils/format"
 import type { CompanyListItem } from "@/types"
 
 const SEARCH_DEBOUNCE_MS = 250
@@ -382,6 +382,13 @@ function ResultRow({
       <div className="shrink-0 text-right">
         <p className="text-sm font-medium tabular-nums">{formatCurrencyCents(row.priceCents)}</p>
         <PriceChangeTag changePct={row.changePct} className="justify-end text-xs" />
+        {(row.dividendYield != null || row.priceToEarnings != null) && (
+          <p className="text-[11px] text-muted-foreground">
+            {row.dividendYield != null && row.dividendYield > 0 && `DY ${formatPercent(row.dividendYield)}`}
+            {row.dividendYield != null && row.dividendYield > 0 && row.priceToEarnings != null && " · "}
+            {row.priceToEarnings != null && `P/L ${row.priceToEarnings.toFixed(2).replace(".", ",")}`}
+          </p>
+        )}
       </div>
     </button>
   )

@@ -49,7 +49,7 @@ export function IndicatorGrid({ dto }: IndicatorGridProps) {
           <h3 className="text-sm font-medium text-muted-foreground">{group.category}</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
             {group.indicators.map((indicator) => (
-              <FundamentalIndicatorCard key={indicator.key} companyId={dto.id} indicator={indicator} dto={dto} />
+              <FundamentalIndicatorCard key={indicator.key} companyId={dto.id} indicatorKey={indicator.key} dto={dto} />
             ))}
             {group.category === "Estrutura" && dto.website && <WebsiteLinkCard website={dto.website} />}
           </div>
