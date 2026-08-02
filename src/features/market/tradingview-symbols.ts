@@ -84,27 +84,19 @@ export interface HeatmapConfig {
   dataSource: string
 }
 
-/// Heatmap category tabs — Mercado 2.0's own tab UI decides which config
-/// (or honest fallback) to render per tab.
-///
-/// CRIPTO uses TradingView's dedicated Crypto Coins Heatmap widget (a
-/// DIFFERENT free widget/script than the Stock Heatmap, not the same one
-/// with a "Crypto" dataSource — that value doesn't exist on the stock
-/// widget; feeding it there is what silently rendered a US stock universe
-/// before this was fixed). ACOES/FIIS/ETFS stay null: TradingView's free
-/// Stock Heatmap widget has no confirmed Brazil-only `dataSource` universe
-/// (its named universes are US/global indices — "SPX500", "AllUSA", etc.),
-/// and its `exchanges` filter narrows WITHIN a chosen dataSource rather
-/// than replacing it, so pairing it with "BMFBOVESPA" while dataSource
-/// stays US-scoped would just render empty — the exact same class of
-/// silent-wrong-data bug this file's CRIPTO fix just corrected. Left as
-/// documented uncertainty rather than a second guess.
-export const HEATMAP_DATA_SOURCES: Record<"ACOES" | "FIIS" | "ETFS" | "CRIPTO", HeatmapConfig | null> = {
-  ACOES: null,
-  FIIS: null,
-  ETFS: null,
-  CRIPTO: { kind: "CRYPTO_HEATMAP", dataSource: "Crypto" },
-}
+/// Mapa de Calor's only category. TradingView's free Stock Heatmap widget
+/// (which would back Ações/FIIs/ETFs) has no confirmed Brazil-only
+/// `dataSource` universe — its named universes are US/global indices
+/// ("SPX500", "AllUSA", etc.) — and its `exchanges` filter narrows WITHIN a
+/// chosen dataSource rather than replacing it, so pairing it with
+/// "BMFBOVESPA" while dataSource stays US-scoped would just render empty.
+/// Rather than guess and risk silently showing the wrong market again (the
+/// exact bug that used to hit Cripto here), those categories were dropped
+/// from the UI entirely. Cripto uses TradingView's dedicated Crypto Coins
+/// Heatmap widget — a DIFFERENT free widget/script than the Stock Heatmap,
+/// not the same one with a "Crypto" dataSource (that value doesn't exist
+/// on the stock widget).
+export const CRYPTO_HEATMAP_CONFIG: HeatmapConfig = { kind: "CRYPTO_HEATMAP", dataSource: "Crypto" }
 
 /// Índices — real market indices with no Company row in this app, so the
 /// only honest way to show them is TradingView's own Mini Chart widget.

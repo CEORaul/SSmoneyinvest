@@ -28,7 +28,12 @@ export function TradingViewTickerTape({ symbols, fallback, className }: TradingV
   const theme = useChartTheme()
   const [containerRef, isVisible] = useIsVisibleOnce<HTMLDivElement>()
   const [state, setState] = useState<MountState>("idle")
-  const height = 46
+  // TradingView's own Ticker Tape config has no width/height field at all
+  // (it autosizes to its content, unlike Heatmap/MiniChart) — this fixed,
+  // overflow-hidden height is entirely this app's own guess at how tall
+  // that content renders. 46px was too short with showSymbolLogo enabled:
+  // each item's price/change row got clipped at the bottom.
+  const height = 60
 
   useEffect(() => {
     if (!isVisible) return
