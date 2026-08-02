@@ -76,6 +76,11 @@ export interface CompanyDetailDTO {
   fiftyTwoWeekHighCents: number | null
   fiftyTwoWeekLowCents: number | null
   volume: bigint | null
+  /// Funcionários / Site — persisted from BRAPI's `summaryProfile` module
+  /// since Phase 1 of the BRAPI Pro integration, but never threaded through
+  /// this DTO until now (found during the Página do Ativo audit).
+  employees: number | null
+  website: string | null
   detailsSyncedAt: Date | null
   lastQuoteAt: Date | null
   updatedAt: Date
@@ -116,6 +121,8 @@ export function toDetailDTO(
     fiftyTwoWeekHighCents: company.fiftyTwoWeekHighCents,
     fiftyTwoWeekLowCents: company.fiftyTwoWeekLowCents,
     volume: company.volume,
+    employees: company.employees,
+    website: company.website,
     detailsSyncedAt: company.detailsSyncedAt,
     lastQuoteAt: company.lastQuoteAt,
     updatedAt: company.updatedAt,

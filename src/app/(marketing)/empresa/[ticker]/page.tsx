@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { computeDataCoverage } from "@/features/company/coverage"
+import { INDICATOR_DEFINITIONS } from "@/features/company/indicators"
 import {
   computeTrailingDividendYield,
   getCompanyByTicker,
@@ -82,6 +83,13 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
     dividendHistoryCount: dividendHistory.length,
   })
 
+  // Reuses the exact same formula indicators.ts's Fundamentos card uses
+  // (Market Cap + Dívida Líquida, an exact identity) rather than a second
+  // computation — this just adapts its reais-denominated result into the
+  // cents CotacaoStatsCard's other stats already use.
+  const enterpriseValueReais = INDICATOR_DEFINITIONS.find((i) => i.key === "enterpriseValue")?.getValue(dtoWithYield) ?? null
+  const enterpriseValueCents = enterpriseValueReais != null ? Math.round(enterpriseValueReais * 100) : null
+
   const tradeCompany: TradeCompany = {
     id: dto.id,
     ticker: dto.ticker,
@@ -121,12 +129,13 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
 
       <CoverageBanner coverage={coverage} />
 
-      <CompanySummaryCard dto={dtoWithYield} />
-
       {positionSummary && <MyPositionCard company={tradeCompany} position={positionSummary} />}
 
-      <section id="grafico" className="scroll-mt-24 space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Gráfico</h2>
+      <section id="visao-geral" className="scroll-mt-24 space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">Visão Geral</h2>
+
+        <CompanySummaryCard dto={dtoWithYield} />
+
         <div className="rounded-xl border border-border bg-card p-4">
           <TradingViewAdvancedChart
             ticker={dto.ticker}
@@ -140,20 +149,19 @@ export default async function EmpresaPage({ params }: EmpresaPageProps) {
             }
           />
         </div>
+
+        <CotacaoStatsCard stats={cotacaoStats} enterpriseValueCents={enterpriseValueCents} />
       </section>
 
       <IndicatorGrid dto={dtoWithYield} />
 
-      {category.hasFundamentals && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <CompanyHealthScore dto={dtoWithYield} />
-          <CotacaoStatsCard stats={cotacaoStats} />
-        </div>
-      )}
+      {category.hasFundamentals && <CompanyHealthScore dto={dtoWithYield} />}
 
-      {!category.hasFundamentals && <CotacaoStatsCard stats={cotacaoStats} />}
-
-      <DividendHistory payments={dividendHistory} currentPriceCents={dto.priceCents} />
+      <DividendHistory
+        payments={dividendHistory}
+        currentPriceCents={dto.priceCents}
+        payoutPct={dtoWithYield.stock?.payout ?? null}
+      />
 
       {category.hasFundamentals && dto.stock && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

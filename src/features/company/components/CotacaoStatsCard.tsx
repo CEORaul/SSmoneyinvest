@@ -4,6 +4,10 @@ import { formatCompactNumber, formatCurrencyCents } from "@/utils/format"
 
 interface CotacaoStatsCardProps {
   stats: CotacaoStatsDTO
+  /// Computed once by the page via indicators.ts's "enterpriseValue"
+  /// definition (Market Cap + Dívida Líquida) — passed in rather than
+  /// recomputed here, so there is exactly one place that formula lives.
+  enterpriseValueCents: number | null
 }
 
 function Stat({ label, value }: { label: string; value: string | null }) {
@@ -15,7 +19,7 @@ function Stat({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-export function CotacaoStatsCard({ stats }: CotacaoStatsCardProps) {
+export function CotacaoStatsCard({ stats, enterpriseValueCents }: CotacaoStatsCardProps) {
   const trackedSince = stats.trackedSinceDate
     ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(
         stats.trackedSinceDate
@@ -32,6 +36,10 @@ export function CotacaoStatsCard({ stats }: CotacaoStatsCardProps) {
         <Stat label="Mínima do dia" value={stats.dayLowCents != null ? formatCurrencyCents(stats.dayLowCents) : null} />
         <Stat label="Volume" value={stats.volume != null ? formatCompactNumber(stats.volume) : null} />
         <Stat
+          label="Enterprise Value"
+          value={enterpriseValueCents != null ? formatCurrencyCents(enterpriseValueCents) : null}
+        />
+        <Stat
           label="Máxima 52 semanas"
           value={stats.fiftyTwoWeekHighCents != null ? formatCurrencyCents(stats.fiftyTwoWeekHighCents) : null}
         />
@@ -39,7 +47,6 @@ export function CotacaoStatsCard({ stats }: CotacaoStatsCardProps) {
           label="Mínima 52 semanas"
           value={stats.fiftyTwoWeekLowCents != null ? formatCurrencyCents(stats.fiftyTwoWeekLowCents) : null}
         />
-        <div />
         <Stat
           label={trackedSince ? `Máxima desde ${trackedSince}` : "Máxima registrada"}
           value={stats.trackedHighCents != null ? formatCurrencyCents(stats.trackedHighCents) : null}
